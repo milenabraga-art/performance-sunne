@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timedelta
 import io
 
-# ── 1. Configuração da Página ────────────────────────────────────────────────
+# ── 1. CONFIGURAÇÃO DA PÁGINA ────────────────────────────────────────────────
 st.set_page_config(
     page_title="Sunne Performance",
     page_icon="☀️",
@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── 2. CSS Sunne® (Login Bonito + KPIs Claros) ───────────────────────────────
+# ── 2. CSS SUNNE® PREMIMUM (Login + Interface) ──────────────────────────────
 SUNNE_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -72,7 +72,7 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 </style>
 """
 
-# ── 3. Utilitários e Segurança ────────────────────────────────────────────────
+# ── 3. UTILITÁRIOS E SEGURANÇA ────────────────────────────────────────────────
 USERS_FILE = "users.json"
 TODAY = datetime.now()
 DELAY_DAYS = 40 
@@ -82,6 +82,11 @@ def load_users():
         default = {"users": [{"name": "Milena", "email": "milena@sunne.com.br", "password": "sunne2026", "role": "admin"}]}
         with open(USERS_FILE, "w") as f: json.dump(default, f, indent=2)
     with open(USERS_FILE) as f: return json.load(f).get("users", [])
+
+def authenticate(email, password):
+    for u in load_users():
+        if u["email"].lower() == email.lower() and u["password"] == password: return u
+    return None
 
 def clean_val(v):
     if not v or str(v).lower() in ("nan", ""): return 0.0
@@ -93,14 +98,14 @@ def clean_val(v):
 
 def csv_export(rows, cols, headers):
     output = io.StringIO()
-    df = pd.DataFrame(rows)
-    if not df.empty:
-        df = df[cols]
-        df.columns = headers
-        df.to_csv(output, index=False, sep=';', encoding='utf-8-sig')
+    df_exp = pd.DataFrame(rows)
+    if not df_exp.empty:
+        df_exp = df_exp[cols]
+        df_exp.columns = headers
+        df_exp.to_csv(output, index=False, sep=';', encoding='utf-8-sig')
     return output.getvalue().encode('utf-8-sig')
 
-# ── 4. Lógica de Negócio ─────────────────────────────────────────────────────
+# ── 4. LÓGICA DE NEGÓCIO (ANÁLISE) ───────────────────────────────────────────
 def load_planilha(file):
     try:
         df = pd.read_excel(file, header=None) if not file.name.endswith('.csv') else pd.read_csv(file, header=None, sep=None, engine='python')
@@ -115,7 +120,6 @@ def load_planilha(file):
     except: return None
 
 def analyze(df_r, df_e):
-    # Identificação de colunas
     uc_r = next((c for c in df_r.columns if "UC Nova" in c), df_r.columns[0])
     uc_e = next((c for c in df_e.columns if "Número da UC" in c), df_e.columns[0])
     comp_c = next((c for c in df_e.columns if "Competência" in c), None)
@@ -132,9 +136,17 @@ def analyze(df_r, df_e):
     for _, row in df_e.iterrows():
         uc, comp = str(row[uc_e]), str(row[comp_c])
         status = str(row[status_c]).lower() if status_c else ""
-        valor = clean_val(row[valor_c]) if valor_c else 0.0
+        valor = clean_val(row[valor_c])
 
         extrato_pairs.add((uc, comp))
+        t_gerado[comp] = t_gerado.get(comp, 0.0) + valor
+        if "pago" in status: t_pago[comp] = t_pago.get(comp, 0.0) + valor
+        
+        # Filtro fixo: Apenas VENCIDO
+        if "vencido" in status:
+            if comp not in inad_mes: inad_mes[comp] = []
+            inad_mes[comp].append({"uc": uc, "valor": valor, "status": "Vencido", "titular": str(row.get("Titular da Conta", "—"))})
+
         if comp not in comp_leitura:
             for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
                 try: 
@@ -142,16 +154,6 @@ def analyze(df_r, df_e):
                     break
                 except: comp_leitura[comp] = None
 
-        # Cálculos de Inadimplência
-        t_gerado[comp] = t_gerado.get(comp, 0.0) + valor
-        if "pago" in status: t_pago[comp] = t_pago.get(comp, 0.0) + valor
-        
-        # FILTRO: Apenas status VENCIDO
-        if "vencido" in status:
-            if comp not in inad_mes: inad_mes[comp] = []
-            inad_mes[comp].append({"uc": uc, "valor": valor, "status": "Vencido", "titular": str(row.get("Titular da Conta", "—"))})
-
-    # Faltantes de Captura
     ucs_r = df_r[uc_r].unique().tolist()
     for comp in df_e[comp_c].unique():
         if not comp: continue
@@ -165,20 +167,27 @@ def analyze(df_r, df_e):
 
     return {"missing": missing, "inad": inad_mes, "t_gerado": t_gerado, "t_pago": t_pago}
 
-# ── 5. Interface ─────────────────────────────────────────────────────────────
+# ── 5. INTERFACE (MAIN) ─────────────────────────────────────────────────────
 def main():
     st.markdown(SUNNE_CSS, unsafe_allow_html=True)
+    
+    # Gerenciamento de Sessão (Login)
     if "user" not in st.session_state:
         st.markdown('<div class="login-container"><div class="login-card"><div class="login-logo-big">S</div>'
-                    '<h3>Sunne Performance</h3><p style="font-size:13px; color:#7A5060">Gestão de Performance</p>', unsafe_allow_html=True)
+                    '<h3>Sunne Performance</h3><p style="font-size:13px; color:#7A5060">Gestão de Performance e Inadimplência</p>', unsafe_allow_html=True)
         with st.form("login"):
-            e = st.text_input("E-mail"); s = st.text_input("Senha", type="password")
+            e = st.text_input("E-mail corporativo"); s = st.text_input("Senha", type="password")
             if st.form_submit_button("Acessar Sistema", use_container_width=True):
-                if authenticate(e, s): st.session_state["user"] = e; st.rerun()
-                else: st.error("Erro no login.")
+                user_found = authenticate(e, s)
+                if user_found: 
+                    st.session_state["user"] = user_found
+                    st.rerun()
+                else: st.error("E-mail ou senha incorretos.")
         st.markdown('</div></div>', unsafe_allow_html=True); return
 
-    st.markdown(f'<div class="sunne-header"><div><span class="sunne-logo-mark">S</span><span class="sunne-header-title">Sunne Performance</span></div></div>', unsafe_allow_html=True)
+    # Header logado
+    st.markdown(f'<div class="sunne-header"><div><span class="sunne-logo-mark">S</span><span class="sunne-header-title">Sunne Performance</span></div><div class="user-pill">{st.session_state["user"]["name"]}</div></div>', unsafe_allow_html=True)
+    
     t1, t2, t3 = st.tabs(["📂 Importar", "🔍 Captura", "💳 Inadimplência"])
     
     with t1:
@@ -195,8 +204,8 @@ def main():
         with t2:
             for comp, items in res["missing"].items():
                 with st.expander(f"⚠️ {comp} - {len(items)} faltantes"):
-                    csv = csv_export(items, ["uc", "apelido", "usina"], ["UC", "Apelido", "Usina"])
-                    st.download_button(f"⬇ Baixar Lista {comp}", csv, f"captura_{comp}.csv", "text/csv", key=f"cap_{comp}")
+                    csv_cap = csv_export(items, ["uc", "apelido", "usina"], ["UC", "Apelido", "Usina"])
+                    st.download_button(f"⬇ Baixar Lista {comp}", csv_cap, f"faltantes_{comp}.csv", "text/csv", key=f"cap_{comp}")
                     st.write(pd.DataFrame(items))
         with t3:
             for comp, rows in res["inad"].items():
@@ -212,8 +221,9 @@ def main():
                             f'<div class="kpi-box"><div class="kpi-label">% Inadimplência</div><div class="kpi-value danger">{taxa:.1f}%</div></div>'
                             f'</div>', unsafe_allow_html=True)
                 with st.expander(f"Detalhes de Vencidos - {comp}"):
-                    csv_inad = csv_export(rows, ["uc", "titular", "valor"], ["UC", "Titular", "Valor"])
-                    st.download_button(f"⬇ Exportar Vencidos {comp}", csv_inad, f"inadimplencia_{comp}.csv", "text/csv", key=f"in_{comp}")
+                    csv_in = csv_export(rows, ["uc", "titular", "valor"], ["UC", "Titular", "Valor"])
+                    st.download_button(f"⬇ Exportar Vencidos {comp}", csv_in, f"vencidos_{comp}.csv", "text/csv", key=f"in_{comp}")
                     st.write(pd.DataFrame(rows))
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()
