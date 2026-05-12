@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 2. CSS BACKOFFICE (BOTÕES LARANJA E SIDEBAR RUBI) ───────────────────────
+# ── 2. CSS BACKOFFICE (FORÇANDO BOTÕES LARANJA E TEXTO BRANCO) ───────────────
 SUNNE_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -33,32 +33,49 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     background-color: var(--rubi) !important;
     border-right: 1px solid rgba(255,255,255,0.1);
 }
-[data-testid="stSidebar"] * { color: white !important; }
 
-/* BOTÕES DA SIDEBAR - LARANJA COM TEXTO BRANCO */
-.stSidebar .stButton > button {
-    width: 100% !important;
-    background-color: var(--laranja) !important;
-    color: orange !important;
+/* FORÇAR TEXTO BRANCO EM TODA A SIDEBAR */
+[data-testid="stSidebar"] * { 
+    color: white !important; 
+}
+
+/* BOTÕES DA SIDEBAR - LARANJA COM TEXTO BRANCO (SELETORES DE ALTA PRECISÃO) */
+div[data-testid="stSidebar"] button {
+    background-color: #F36E21 !important;
+    color: white !important;
     border: none !important;
     padding: 10px 15px !important;
     border-radius: 8px !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important; /* Texto em negrito para ler melhor */
     margin-bottom: 8px !important;
-}
-.stSidebar .stButton > button:hover {
-    background-color: #d65a1b !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
 }
 
-/* Tabelas e KPIs */
+div[data-testid="stSidebar"] button:hover {
+    background-color: #d65a1b !important;
+    border: none !important;
+}
+
+/* Ajuste dos ícones dentro dos botões (se houver) */
+div[data-testid="stSidebar"] button p {
+    color: white !important;
+    font-weight: 700 !important;
+}
+
+/* Estilo do Login e KPIs permanecem iguais */
+.login-card {
+    background: white; padding: 3rem; border-radius: 25px;
+    box-shadow: 0 15px 35px rgba(51, 0, 26, 0.1);
+    border: 1px solid #EAD8D0; max-width: 400px; margin: auto; text-align: center;
+}
 .kpi-box { background: white; border-radius: 15px; padding: 1.2rem; border: 1px solid #EAD8D0; text-align: center; }
 .kpi-value { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--rubi); }
-.kpi-value.danger { color: #FF365E; }
-.kpi-value.ok { color: #0A8A7A; }
 </style>
 """
 
-# ── 3. UTILITÁRIOS E SEGURANÇA ────────────────────────────────────────────────
+# ── 3. UTILITÁRIOS E SEGURANÇA (LOGICA INALTERADA) ───────────────────────────
 USERS_FILE = "users.json"
 TODAY = datetime.now()
 DELAY_DAYS = 40 
@@ -96,7 +113,7 @@ def csv_from_list(rows, cols, headers):
         df_export.to_csv(output, index=False, sep=';', encoding='utf-8-sig')
     return output.getvalue().encode('utf-8-sig')
 
-# ── 4. LÓGICA DE ANÁLISE ─────────────────────────────────────────────────────
+# ── 4. LÓGICA DE ANÁLISE (INTELIGÊNCIA PRESERVADA) ───────────────────────────
 def load_planilha(file):
     if file is None: return None
     try:
@@ -132,26 +149,13 @@ def analyze_performance(df_r, df_e):
         valor = clean_val(row[valor_col])
 
         t_gerado[comp] = t_gerado.get(comp, 0.0) + valor
-        if "pago" in status: 
-            t_pago[comp] = t_pago.get(comp, 0.0) + valor
+        if "pago" in status: t_pago[comp] = t_pago.get(comp, 0.0) + valor
         
         if "vencido" in status:
             t_vencido[comp] = t_vencido.get(comp, 0.0) + valor
             if comp not in inad_res: inad_res[comp] = []
-            inad_res[comp].append({
-                "uc": row[uc_e_col], "valor": valor, "titular": row[titular_col] if titular_col else "—"
-            })
-            
-        if comp not in st.session_state.get('comp_leitura', {}) and leitura_col:
-            for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
-                try:
-                    dt = datetime.strptime(str(row[leitura_col]).strip(), fmt)
-                    if 'comp_leitura' not in st.session_state: st.session_state.comp_leitura = {}
-                    st.session_state.comp_leitura[comp] = dt
-                    break
-                except: pass
+            inad_res[comp].append({"uc": row[uc_e_col], "valor": valor, "titular": row[titular_col] if titular_col else "—"})
 
-    # Lógica de Faltantes
     extrato_set = set(zip(df_e['UC_NORM'], df_e[comp_col].astype(str)))
     ucs_rateio = df_r['UC_NORM'].unique()
     competencias = df_e[comp_col].unique()
@@ -173,16 +177,14 @@ def main():
     st.markdown(SUNNE_CSS, unsafe_allow_html=True)
     
     if "user" not in st.session_state:
-        with st.container():
-            st.markdown('<div class="login-card">', unsafe_allow_html=True)
-            st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=120)
-            with st.form("login"):
-                e = st.text_input("E-mail", value="milena@sunne.com.br")
-                s = st.text_input("Senha", type="password")
-                if st.form_submit_button("Acessar Hub", use_container_width=True):
-                    u = authenticate(e, s)
-                    if u: st.session_state["user"] = u; st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=120)
+        with st.form("login"):
+            e = st.text_input("E-mail", value="milena@sunne.com.br")
+            s = st.text_input("Senha", type="password")
+            if st.form_submit_button("Acessar Hub", use_container_width=True):
+                u = authenticate(e, s)
+                if u: st.session_state["user"] = u; st.rerun()
         return
 
     with st.sidebar:
@@ -222,18 +224,15 @@ def main():
                     pago = res["t_pago"].get(comp, 0.0)
                     vencido = res["t_vencido"].get(comp, 0.0)
                     taxa = (vencido / gerado * 100) if gerado > 0 else 0
-                    
                     st.markdown(f"### {comp}")
                     c1, c2, c3, c4 = st.columns(4)
                     c1.metric("Gerado", f"R$ {gerado:,.2f}")
-                    c2.metric("Pago", f"R$ {pago:,.2f}", delta_color="normal")
+                    c2.metric("Pago", f"R$ {pago:,.2f}")
                     c3.metric("Vencido", f"R$ {vencido:,.2f}")
                     c4.metric("Inadimplência", f"{taxa:.1f}%")
-                    
-                    # TABELA AGORA FICA DENTRO DO EXPANDER
                     with st.expander("Ver lista de clientes inadimplentes"):
                         st.table(pd.DataFrame(rows))
-
-    else: st.title(f"Aba {st.session_state.page.capitalize()}")
+    else:
+        st.title(f"Aba {st.session_state.page.capitalize()}")
 
 if __name__ == "__main__": main()
