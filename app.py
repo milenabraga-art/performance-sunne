@@ -225,7 +225,8 @@ def authenticate(email: str, password: str):
 def normalize_col(df: pd.DataFrame, patterns: list) -> str | None:
     for p in patterns:
         for c in df.columns:
-            if pd.Series([c]).astype(str).str.contains(p, case=False, regex=True).any():
+            # Converte o nome da coluna para string antes de comparar
+            if pd.Series([str(c)]).str.contains(p, case=False, regex=True).any():
                 return c
     return None
 
@@ -240,9 +241,9 @@ def load_planilha(uploaded_file) -> pd.DataFrame | None:
             # Lê a primeira aba do Excel
             df = pd.read_excel(uploaded_file, sheet_name=0, dtype=str, header=None)
             
-            # Procura a linha que contém "UC Nova/Atual" para ser o cabeçalho real
             found_header = False
             for i, row in df.iterrows():
+                # Converte cada célula da linha para string e limpa espaços
                 row_str = [str(cell).strip() for cell in row]
                 if "UC Nova/Atual" in row_str:
                     df.columns = row_str
@@ -250,7 +251,6 @@ def load_planilha(uploaded_file) -> pd.DataFrame | None:
                     found_header = True
                     break
             
-            # Se não achou por "UC Nova/Atual", tenta pela primeira linha que tenha o símbolo "#"
             if not found_header:
                 for i, row in df.iterrows():
                     if any(str(cell).strip() == "#" for cell in row):
@@ -258,24 +258,16 @@ def load_planilha(uploaded_file) -> pd.DataFrame | None:
                         df = df.iloc[i+1:].reset_index(drop=True)
                         break
         
-        df.columns = df.columns.str.strip()
-        # Remove colunas e linhas totalmente vazias que o Excel às vezes cria
-        df = df.loc[:, df.columns.notnull()]
+        # O PULO DO GATO: Garante que todos os nomes de colunas sejam strings antes do .str.strip()
+        df.columns = [str(c).strip() for c in df.columns]
+        
+        # Remove colunas e linhas totalmente vazias
+        df = df.loc[:, [c for c in df.columns if c and c.lower() != "nan"]]
         df = df.dropna(how='all').fillna("")
         return df
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
         return None
-
-def parse_date(v: str) -> datetime | None:
-    if not v or str(v).strip() == "" or str(v).lower() == "nan":
-        return None
-    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y"):
-        try:
-            return datetime.strptime(str(v).strip(), fmt)
-        except ValueError:
-            continue
-    return None
 
 def get_uc_col(df: pd.DataFrame) -> str | None:
     return normalize_col(df, [
