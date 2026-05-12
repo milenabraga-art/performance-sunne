@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 2. CSS BACKOFFICE (BOTÕES LARANJA ESTÁTICOS - SEM ÍCONES) ───────────────
+# ── 2. CSS BACKOFFICE (APENAS TEXTO - SEM BLOCOS) ────────────────────────────
 SUNNE_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -34,43 +34,38 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     border-right: 1px solid rgba(255,255,255,0.1);
 }
 
-/* Texto em branco na sidebar */
-[data-testid="stSidebar"] * { 
-    color: white !important; 
-}
-
-/* BOTÕES DA SIDEBAR - LARANJA ESTÁTICO (SEM BALÃO / SEM ÍCONE) */
+/* Remover estilo de botão e deixar apenas o texto */
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
-    background-color: #F36E21 !important;
-    color: white !important;
+    background-color: transparent !important;
     border: none !important;
-    padding: 10px 15px !important;
-    border-radius: 4px !important; /* Bordas retas para tirar o aspecto de balão */
-    font-weight: 700 !important;
-    margin-bottom: 10px !important;
+    color: white !important;
+    padding: 0px !important;
+    margin-bottom: 15px !important;
     width: 100% !important;
-    height: 45px !important;
-    display: inline-flex !important;
-    justify-content: center !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
     box-shadow: none !important;
 }
 
-/* Forçar texto branco sem ícones */
+/* Estilo do texto da aba */
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] p {
     color: white !important;
-    font-size: 14px !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    transition: 0.3s;
+}
+
+/* Efeito ao passar o mouse: a palavra fica laranja */
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover p {
+    color: var(--laranja) !important;
     font-weight: 700 !important;
 }
 
-/* Hover discreto */
-[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
-    background-color: #d65a1b !important;
-}
-
-/* Estilos de Cards e KPIs */
+/* Elementos de login e KPIs */
+.login-card { background: white; padding: 3rem; border-radius: 25px; box-shadow: 0 15px 35px rgba(51, 0, 26, 0.1); border: 1px solid #EAD8D0; max-width: 400px; margin: auto; text-align: center; }
 .kpi-box { background: white; border-radius: 15px; padding: 1.2rem; border: 1px solid #EAD8D0; text-align: center; }
 .kpi-value { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--rubi); }
-.login-card { background: white; padding: 3rem; border-radius: 25px; box-shadow: 0 15px 35px rgba(51, 0, 26, 0.1); border: 1px solid #EAD8D0; max-width: 400px; margin: auto; text-align: center; }
 </style>
 """
 
@@ -182,6 +177,7 @@ def main():
         st.write(f"Olá, {st.session_state['user']['name']} 👋")
         st.write("---")
         
+        # NAVEGAÇÃO APENAS TEXTO
         if "page" not in st.session_state: st.session_state.page = "faturamento"
         if st.button("Dashboard"): st.session_state.page = "dash"
         if st.button("Usinas"): st.session_state.page = "usinas"
@@ -226,7 +222,7 @@ def main():
                     with st.expander("Ver lista de clientes inadimplentes"):
                         st.table(pd.DataFrame(rows))
     else:
-        st.title(f"Página {st.session_state.page.capitalize()}")
+        st.title(f"Aba {st.session_state.page.capitalize()}")
 
 if __name__ == "__main__":
     main()
