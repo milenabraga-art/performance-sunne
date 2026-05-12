@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 2. CSS BACKOFFICE (BOTÕES LARANJA ESTÁTICOS E BLINDADOS) ────────────────
+# ── 2. CSS BACKOFFICE (BOTÕES LARANJA ESTÁTICOS E SIDEBAR RUBI) ──────────────
 SUNNE_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -39,7 +39,7 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     color: white !important; 
 }
 
-/* BOTÕES DA SIDEBAR - AGORA COM SELETOR DE ALTA ESPECIFICIDADE */
+/* BOTÕES DA SIDEBAR - LARANJA ESTÁTICO (COR FIXA) */
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"],
 [data-testid="stSidebar"] button {
     background-color: #F36E21 !important;
@@ -54,27 +54,28 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     justify-content: center !important;
 }
 
-/* Garantir que o texto dentro do botão também seja branco */
-[data-testid="stSidebar"] button p, 
-[data-testid="stSidebar"] button span {
+/* Garantir texto branco dentro do botão */
+[data-testid="stSidebar"] button p {
     color: white !important;
     font-weight: 700 !important;
 }
 
-/* Efeito Hover (passar o mouse) apenas para feedback */
+/* Hover para feedback */
 [data-testid="stSidebar"] button:hover {
     background-color: #ff8342 !important;
     border-color: #ff8342 !important;
 }
 
-/* Estilo do Login e KPIs */
+/* KPIs */
+.kpi-box { background: white; border-radius: 15px; padding: 1.2rem; border: 1px solid #EAD8D0; text-align: center; }
+.kpi-value { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--rubi); }
+
+/* Login */
 .login-card {
     background: white; padding: 3rem; border-radius: 25px;
     box-shadow: 0 15px 35px rgba(51, 0, 26, 0.1);
     border: 1px solid #EAD8D0; max-width: 400px; margin: auto; text-align: center;
 }
-.kpi-box { background: white; border-radius: 15px; padding: 1.2rem; border: 1px solid #EAD8D0; text-align: center; }
-.kpi-value { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--rubi); }
 </style>
 """
 
@@ -107,122 +108,10 @@ def clean_val(v):
     try: return float(s)
     except: return 0.0
 
-def csv_from_list(rows, cols, headers):
-    output = io.StringIO()
-    df_temp = pd.DataFrame(rows)
-    if not df_temp.empty:
-        df_export = df_temp[cols]
-        df_export.columns = headers
-        df_export.to_csv(output, index=False, sep=';', encoding='utf-8-sig')
-    return output.getvalue().encode('utf-8-sig')
-
 # ── 4. LÓGICA DE ANÁLISE ─────────────────────────────────────────────────────
 def load_planilha(file):
     if file is None: return None
     try:
         df = pd.read_excel(file, header=None) if not file.name.endswith('.csv') else pd.read_csv(file, header=None, sep=None, engine='python')
         for i, row in df.head(20).iterrows():
-            row_l = [str(c).strip().lower() for c in row]
-            if any("uc nova" in s or "número da uc" in s for s in row_l):
-                df.columns = [str(c).strip() for c in row]
-                df = df.iloc[i+1:].reset_index(drop=True)
-                break
-        df.columns = [str(c).strip() for c in df.columns]
-        return df.dropna(how='all').fillna("")
-    except: return None
-
-def analyze_performance(df_r, df_e):
-    uc_r_col = next((c for c in df_r.columns if "UC Nova" in c), df_r.columns[0])
-    uc_e_col = next((c for c in df_e.columns if "Número da UC" in c), df_e.columns[0])
-    comp_col = next((c for c in df_e.columns if "Competência" in c), None)
-    status_col = next((c for c in df_e.columns if "Status" in c), None)
-    valor_col = next((c for c in df_e.columns if "Total a Pagar" in c), None)
-    leitura_col = next((c for c in df_e.columns if "Leitura Atual" in c), None)
-    titular_col = next((c for c in df_e.columns if "Titular" in c), None)
-
-    df_r['UC_NORM'] = df_r[uc_r_col].apply(normalize_uc)
-    df_e['UC_NORM'] = df_e[uc_e_col].apply(normalize_uc)
-
-    missing_res = {}; inad_res = {}; t_gerado = {}; t_pago = {}; t_vencido = {}
-
-    for _, row in df_e.iterrows():
-        uc = str(row['UC_NORM'])
-        comp = str(row[comp_col]) if comp_col else "Geral"
-        status = str(row[status_col]).lower() if status_col else ""
-        valor = clean_val(row[valor_col])
-
-        t_gerado[comp] = t_gerado.get(comp, 0.0) + valor
-        if "pago" in status: 
-            t_pago[comp] = t_pago.get(comp, 0.0) + valor
-        
-        if "vencido" in status:
-            t_vencido[comp] = t_vencido.get(comp, 0.0) + valor
-            if comp not in inad_res: inad_res[comp] = []
-            inad_res[comp].append({
-                "uc": row[uc_e_col], "valor": valor, "titular": row[titular_col] if titular_col else "—"
-            })
-
-    extrato_set = set(zip(df_e['UC_NORM'], df_e[comp_col].astype(str)))
-    ucs_rateio = df_r['UC_NORM'].unique()
-    competencias = df_e[comp_col].unique()
-    
-    for comp in competencias:
-        if not comp or str(comp).lower() == 'nan': continue
-        for uc_norm in ucs_rateio:
-            if (uc_norm, str(comp)) not in extrato_set:
-                r_orig = df_r[df_r['UC_NORM'] == uc_norm].iloc[0]
-                if comp not in missing_res: missing_res[comp] = []
-                missing_res[comp].append({
-                    "uc": r_orig[uc_r_col], "apelido": r_orig.get("Apelido UC", "—"), "usina": r_orig.get("Usina", "—")
-                })
-
-    return {"missing": missing_res, "inad": inad_res, "t_gerado": t_gerado, "t_pago": t_pago, "t_vencido": t_vencido}
-
-# ── 5. INTERFACE ─────────────────────────────────────────────────────────────
-def main():
-    st.markdown(SUNNE_CSS, unsafe_allow_html=True)
-    
-    if "user" not in st.session_state:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=120)
-        with st.form("login"):
-            e = st.text_input("E-mail", value="milena@sunne.com.br")
-            s = st.text_input("Senha", type="password")
-            if st.form_submit_button("Acessar Hub", use_container_width=True):
-                u = authenticate(e, s)
-                if u: st.session_state["user"] = u; st.rerun()
-        return
-
-    with st.sidebar:
-        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=120)
-        st.write(f"Olá, {st.session_state['user']['name']} 👋")
-        st.write("---")
-        if "page" not in st.session_state: st.session_state.page = "faturamento"
-        if st.button("📊 Dashboard"): st.session_state.page = "dash"
-        if st.button("🌱 Usinas"): st.session_state.page = "usinas"
-        if st.button("⚙️ Geradores"): st.session_state.page = "geradores"
-        if st.button("📈 Rateio"): st.session_state.page = "rateio"
-        if st.button("💳 Faturamento"): st.session_state.page = "faturamento"
-        st.write("---")
-        if st.button("🚪 Sair"): del st.session_state["user"]; st.rerun()
-
-    if st.session_state.page == "faturamento":
-        st.title("💳 Gestão de Faturamento")
-        t1, t2, t3 = st.tabs(["📂 Importar", "🔍 Captura", "💳 Inadimplência"])
-        
-        with t1:
-            c1, c2 = st.columns(2)
-            f_r = c1.file_uploader("Rateio")
-            f_e = c2.file_uploader("Extrato")
-            if f_r and f_e and st.button("🔄 Rodar Análise"):
-                st.session_state["results"] = analyze_performance(load_planilha(f_r), load_planilha(f_e))
-                st.success("✓ Concluído!")
-
-        res = st.session_state.get("results")
-        if res:
-            with t2:
-                for comp, items in res["missing"].items():
-                    with st.expander(f"⚠️ {comp} - {len(items)} faltantes"):
-                        st.table(pd.DataFrame(items))
-            with t3:
-                for comp, rows in
+            row_l = [str(
