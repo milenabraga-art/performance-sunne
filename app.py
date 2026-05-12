@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 2. CSS PREMIUM SUNNE® (DESIGN RESPONSIVO & CORPORATIVO) ──────────────────
+# ── 2. CSS PREMIUM SUNNE® (LOGIN COMPACTO & DASHBOARD) ───────────────────────
 SUNNE_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -26,41 +26,52 @@ SUNNE_CSS = """
 [data-testid="stAppViewContainer"] { background-color: var(--bg); }
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 
-/* Sidebar Estilizada */
+/* Login Card - AGORA MAIS COMPACTO */
+.login-wrap { 
+    display: flex; justify-content: center; align-items: center; 
+    padding-top: 10vh; /* Desceu um pouco para centralizar melhor */
+}
+.login-card {
+    background: white; 
+    padding: 2rem; /* Reduzido de 3.5rem */
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(51, 0, 26, 0.05); 
+    border: 1px solid #EAD8D0;
+    max-width: 360px; /* Reduzido de 420px */
+    width: 100%; 
+    text-align: center;
+}
+.login-logo-big {
+    width: 60px; height: 60px; /* Reduzido de 80px */
+    background: #33001A; color: #FAB200;
+    font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 15px; margin: 0 auto 1rem; 
+    box-shadow: 0 4px 12px rgba(250, 178, 0, 0.2);
+}
+
+/* Ajustes de formulário no login */
+div[data-testid="stForm"] { border: none !important; padding: 0 !important; }
+.stTextInput > div > div > input { background-color: #FBF5F0 !important; border-radius: 8px !important; }
+
+/* Dashboard e Sidebar */
 [data-testid="stSidebar"] { background-color: #33001A; border-right: 1px solid rgba(255,255,255,0.1); }
 [data-testid="stSidebar"] * { color: white !important; }
 
-/* Login Card */
-.login-wrap { display: flex; justify-content: center; align-items: center; padding-top: 5vh; }
-.login-card {
-    background: white; padding: 3.5rem; border-radius: 30px;
-    box-shadow: 0 20px 40px rgba(51, 0, 26, 0.08); border: 1px solid #EAD8D0;
-    max-width: 420px; width: 100%; text-align: center;
-}
-.login-logo-big {
-    width: 80px; height: 80px; background: #33001A; color: #FAB200;
-    font-family: 'Syne', sans-serif; font-size: 38px; font-weight: 800;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 22px; margin: 0 auto 1.5rem; box-shadow: 0 8px 20px rgba(250, 178, 0, 0.3);
-}
-
-/* KPIs e Tabelas */
-.sunne-card { background: #FFFFFF; border: 1px solid #EAD8D0; border-radius: 20px; padding: 1.8rem; margin-bottom: 1rem; }
+.sunne-card { background: #FFFFFF; border: 1px solid #EAD8D0; border-radius: 20px; padding: 1.5rem; margin-bottom: 1rem; }
 .kpi-row { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
-.kpi-box { background: #FBF5F0; border-radius: 15px; padding: 1.2rem; border: 1px solid #F0E4DC; flex: 1; min-width: 180px; }
+.kpi-box { background: #FBF5F0; border-radius: 12px; padding: 1rem; border: 1px solid #F0E4DC; flex: 1; min-width: 160px; text-align: center; }
 .kpi-label { font-size: 10px; color: #7A5060; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; }
-.kpi-value { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: #33001A; }
+.kpi-value { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #33001A; }
 .kpi-value.danger { color: #FF365E; }
-.kpi-value.ok { color: #0A8A7A; }
 
-.sunne-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.sunne-table th { text-align: left; padding: 0.8rem; background: #FBF5F0; color: #7A5060; border-bottom: 2px solid #EAD8D0; font-size: 11px; text-transform: uppercase; }
-.sunne-table td { padding: 0.8rem; border-bottom: 1px solid #F0E4DC; }
+.sunne-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sunne-table th { text-align: left; padding: 0.6rem; background: #FBF5F0; color: #7A5060; border-bottom: 2px solid #EAD8D0; font-size: 10px; text-transform: uppercase; }
+.sunne-table td { padding: 0.6rem; border-bottom: 1px solid #F0E4DC; }
 
-/* Header Principal */
 .main-header {
-    background: white; padding: 1rem 2rem; border-radius: 15px;
-    margin-bottom: 1.5rem; border: 1px solid #EAD8D0;
+    background: white; padding: 0.8rem 1.5rem; border-radius: 12px;
+    margin-bottom: 1rem; border: 1px solid #EAD8D0;
     display: flex; justify-content: space-between; align-items: center;
 }
 </style>
@@ -118,7 +129,6 @@ def load_planilha(file):
     except: return None
 
 def analyze(df_r, df_e):
-    # Colunas
     uc_r = next((c for c in df_r.columns if "UC Nova" in c), df_r.columns[0])
     uc_e = next((c for c in df_e.columns if "Número da UC" in c), df_e.columns[0])
     comp_c = next((c for c in df_e.columns if "Competência" in c), None)
@@ -129,7 +139,6 @@ def analyze(df_r, df_e):
     df_r[uc_r] = df_r[uc_r].astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
     df_e[uc_e] = df_e[uc_e].astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
 
-    # Inadimplência e Captura
     missing = {}; inad_mes = {}; t_gerado = {}; t_pago = {}
     extrato_pairs = set(); comp_leitura = {}
 
@@ -153,7 +162,6 @@ def analyze(df_r, df_e):
                     break
                 except: comp_leitura[comp] = None
 
-    # Faltantes
     ucs_r = df_r[uc_r].unique().tolist()
     for comp in df_e[comp_c].unique():
         if not comp: continue
@@ -186,9 +194,11 @@ def main():
     
     if "user_data" not in st.session_state:
         st.markdown('<div class="login-wrap"><div class="login-card"><div class="login-logo-big">S</div>'
-                    '<h3>Sunne Hub</h3><p style="font-size:13px; color:#7A5060">Performance & Faturamento</p>', unsafe_allow_html=True)
+                    '<h4 style="color:#33001A; font-family:Syne; margin-bottom:0px;">Sunne Hub</h4>'
+                    '<p style="font-size:12px; color:#7A5060; margin-bottom:15px;">Performance & Faturamento</p>', unsafe_allow_html=True)
         with st.form("login_form"):
-            e = st.text_input("E-mail corporativo"); s = st.text_input("Senha", type="password")
+            e = st.text_input("E-mail corporativo")
+            s = st.text_input("Senha", type="password")
             if st.form_submit_button("Entrar no Sistema", use_container_width=True):
                 user = authenticate(e, s)
                 if user: st.session_state["user_data"] = user; st.rerun()
@@ -209,7 +219,7 @@ def main():
             del st.session_state["user_data"]
             st.rerun()
 
-    st.markdown(f'<div class="main-header"><span style="font-family:Syne; font-weight:700; color:#33001A;">Sunne Performance</span><span>{user["name"]}</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-header"><span style="font-family:Syne; font-weight:700; color:#33001A;">Sunne Performance</span><span style="font-size:12px; color:#7A5060;">{user["name"]}</span></div>', unsafe_allow_html=True)
 
     # --- ABA: PERFORMANCE ---
     if menu == "📊 Análise de Performance":
