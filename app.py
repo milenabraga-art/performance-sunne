@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 2. CSS BACKOFFICE (BOTÕES LARANJA ESTÁTICOS) ──────────────────────────────
+# ── 2. CSS BACKOFFICE (BOTÕES LARANJA ESTÁTICOS E BLINDADOS) ────────────────
 SUNNE_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -39,25 +39,32 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     color: white !important; 
 }
 
-/* BOTÕES DA SIDEBAR - LARANJA ESTÁTICO (COR FIXA) */
-div[data-testid="stSidebar"] .stButton > button {
-    background-color: #F36E21 !important; /* Laranja Sunne fixo */
-    color: white !important;             /* Texto branco fixo */
-    border: none !important;
+/* BOTÕES DA SIDEBAR - AGORA COM SELETOR DE ALTA ESPECIFICIDADE */
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"],
+[data-testid="stSidebar"] button {
+    background-color: #F36E21 !important;
+    color: white !important;
+    border: 1px solid #F36E21 !important;
     padding: 10px 15px !important;
     border-radius: 10px !important;
-    font-weight: 700 !important;         /* Negrito para leitura */
+    font-weight: 700 !important;
     margin-bottom: 10px !important;
     width: 100% !important;
-    opacity: 1 !important;               /* Sem transparência */
-    display: flex !important;
+    display: inline-flex !important;
     justify-content: center !important;
 }
 
-/* Efeito leve ao passar o mouse para indicar que é clicável */
-div[data-testid="stSidebar"] .stButton > button:hover {
-    background-color: #ff8342 !important; /* Um laranja levemente mais claro */
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+/* Garantir que o texto dentro do botão também seja branco */
+[data-testid="stSidebar"] button p, 
+[data-testid="stSidebar"] button span {
+    color: white !important;
+    font-weight: 700 !important;
+}
+
+/* Efeito Hover (passar o mouse) apenas para feedback */
+[data-testid="stSidebar"] button:hover {
+    background-color: #ff8342 !important;
+    border-color: #ff8342 !important;
 }
 
 /* Estilo do Login e KPIs */
@@ -145,7 +152,8 @@ def analyze_performance(df_r, df_e):
         valor = clean_val(row[valor_col])
 
         t_gerado[comp] = t_gerado.get(comp, 0.0) + valor
-        if "pago" in status: t_pago[comp] = t_pago.get(comp, 0.0) + valor
+        if "pago" in status: 
+            t_pago[comp] = t_pago.get(comp, 0.0) + valor
         
         if "vencido" in status:
             t_vencido[comp] = t_vencido.get(comp, 0.0) + valor
@@ -217,21 +225,4 @@ def main():
                     with st.expander(f"⚠️ {comp} - {len(items)} faltantes"):
                         st.table(pd.DataFrame(items))
             with t3:
-                for comp, rows in res["inad"].items():
-                    gerado = res["t_gerado"].get(comp, 0.0)
-                    pago = res["t_pago"].get(comp, 0.0)
-                    vencido = res["t_vencido"].get(comp, 0.0)
-                    taxa = (vencido / gerado * 100) if gerado > 0 else 0
-                    
-                    st.markdown(f"### {comp}")
-                    c1, c2, c3, c4 = st.columns(4)
-                    c1.metric("Gerado", f"R$ {gerado:,.2f}")
-                    c2.metric("Pago", f"R$ {pago:,.2f}")
-                    c3.metric("Vencido", f"R$ {vencido:,.2f}")
-                    c4.metric("Inadimplência", f"{taxa:.1f}%")
-                    with st.expander("Ver lista de clientes inadimplentes"):
-                        st.table(pd.DataFrame(rows))
-    else:
-        st.title(f"Página {st.session_state.page.capitalize()}")
-
-if __name__ == "__main__": main()
+                for comp, rows in
