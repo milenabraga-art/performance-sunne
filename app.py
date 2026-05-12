@@ -39,7 +39,7 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 .stSidebar .stButton > button {
     width: 100% !important;
     background-color: var(--laranja) !important;
-    color: white !important;
+    color: orange !important;
     border: none !important;
     padding: 10px 15px !important;
     border-radius: 8px !important;
