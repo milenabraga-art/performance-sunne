@@ -225,10 +225,9 @@ def authenticate(email: str, password: str):
 def normalize_col(df: pd.DataFrame, patterns: list) -> str | None:
     for p in patterns:
         for c in df.columns:
-            if pd.Series([c]).str.contains(p, case=False, regex=True).any():
+            if pd.Series([c]).astype(str).str.contains(p, case=False, regex=True).any():
                 return c
     return None
-
 
 def load_planilha(uploaded_file) -> pd.DataFrame | None:
     if uploaded_file is None:
@@ -238,25 +237,45 @@ def load_planilha(uploaded_file) -> pd.DataFrame | None:
         if name.endswith(".csv"):
             df = pd.read_csv(uploaded_file, dtype=str)
         else:
-            df = pd.read_excel(uploaded_file, dtype=str)
+            # Lê a primeira aba do Excel
+            df = pd.read_excel(uploaded_file, sheet_name=0, dtype=str, header=None)
+            
+            # Procura a linha que contém "UC Nova/Atual" para ser o cabeçalho real
+            found_header = False
+            for i, row in df.iterrows():
+                row_str = [str(cell).strip() for cell in row]
+                if "UC Nova/Atual" in row_str:
+                    df.columns = row_str
+                    df = df.iloc[i+1:].reset_index(drop=True)
+                    found_header = True
+                    break
+            
+            # Se não achou por "UC Nova/Atual", tenta pela primeira linha que tenha o símbolo "#"
+            if not found_header:
+                for i, row in df.iterrows():
+                    if any(str(cell).strip() == "#" for cell in row):
+                        df.columns = [str(c).strip() for c in row]
+                        df = df.iloc[i+1:].reset_index(drop=True)
+                        break
+        
         df.columns = df.columns.str.strip()
-        df = df.fillna("")
+        # Remove colunas e linhas totalmente vazias que o Excel às vezes cria
+        df = df.loc[:, df.columns.notnull()]
+        df = df.dropna(how='all').fillna("")
         return df
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
         return None
 
-
 def parse_date(v: str) -> datetime | None:
-    if not v or v.strip() == "":
+    if not v or str(v).strip() == "" or str(v).lower() == "nan":
         return None
     for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y"):
         try:
-            return datetime.strptime(v.strip(), fmt)
+            return datetime.strptime(str(v).strip(), fmt)
         except ValueError:
             continue
     return None
-
 
 def get_uc_col(df: pd.DataFrame) -> str | None:
     return normalize_col(df, [
@@ -264,75 +283,74 @@ def get_uc_col(df: pd.DataFrame) -> str | None:
         r"num.*uc", r"^uc$", r"^uc\b"
     ])
 
-
 # ── Lógica de análise ─────────────────────────────────────────────────────────
 def analyze(df_rateio: pd.DataFrame, df_extrato: pd.DataFrame) -> dict:
-    # ---- Identificar colunas ------------------------------------------------
-    uc_r_col = get_uc_col(df_rateio)
-    usina_r_col = normalize_col(df_rateio, [r"usina"])
-    apelido_col = normalize_col(df_rateio, [r"apelido"])
+    # ---- Mapeamento de Colunas (Nomes Exatos da Sunne) ----------------------
+    uc_r_col = "UC Nova/Atual" if "UC Nova/Atual" in df_rateio.columns else get_uc_col(df_rateio)
+    usina_r_col = "Usina" if "Usina" in df_rateio.columns else normalize_col(df_rateio, [r"usina"])
+    apelido_col = "Apelido UC" if "Apelido UC" in df_rateio.columns else normalize_col(df_rateio, [r"apelido"])
 
-    uc_e_col = get_uc_col(df_extrato)
-    titular_col = normalize_col(df_extrato, [r"titular"])
-    comp_ext_col = normalize_col(df_extrato, [r"competência\s*[-–]\s*extenso", r"competencia\s*[-–]\s*extenso"])
-    comp_col = normalize_col(df_extrato, [r"^competência$", r"^competencia$", r"competência\s*$"])
-    leitura_col = normalize_col(df_extrato, [r"leitura\s*atual"])
-    valor_col = normalize_col(df_extrato, [r"total\s*a\s*pagar", r"total\s*pagar"])
-    status_col = normalize_col(df_extrato, [r"status\s*de\s*pagamento", r"^status$"])
-    usina_e_col = normalize_col(df_extrato, [r"usina"])
-    pago_col = normalize_col(df_extrato, [r"total\s*pago"])
+    uc_e_col = "Número da UC" if "Número da UC" in df_extrato.columns else get_uc_col(df_extrato)
+    titular_col = "Titular da Conta" if "Titular da Conta" in df_extrato.columns else normalize_col(df_extrato, [r"titular"])
+    
+    comp_ext_col = "Competência - extenso" if "Competência - extenso" in df_extrato.columns else normalize_col(df_extrato, [r"competência\s*[-–]\s*extenso"])
+    comp_col = "Competência" if "Competência" in df_extrato.columns else normalize_col(df_extrato, [r"^competência$"])
+    
+    leitura_col = "Leitura Atual" if "Leitura Atual" in df_extrato.columns else normalize_col(df_extrato, [r"leitura\s*atual"])
+    valor_col = "Total a Pagar Boleto Sunne" if "Total a Pagar Boleto Sunne" in df_extrato.columns else normalize_col(df_extrato, [r"total\s*a\s*pagar"])
+    status_col = "Status de Pagamento" if "Status de Pagamento" in df_extrato.columns else normalize_col(df_extrato, [r"status\s*de\s*pagamento"])
+    usina_e_col = "Usina" if "Usina" in df_extrato.columns else normalize_col(df_extrato, [r"usina"])
 
     errors = []
-    if not uc_r_col: errors.append("Coluna UC não encontrada na Planilha de Rateio.")
-    if not uc_e_col: errors.append("Coluna UC não encontrada no Extrato.")
+    if not uc_r_col: 
+        cols_found = ", ".join(list(df_rateio.columns[:5]))
+        errors.append(f"Coluna 'UC Nova/Atual' não encontrada no Rateio. Colunas detectadas: {cols_found}")
+    if not uc_e_col: 
+        errors.append("Coluna 'Número da UC' não encontrada no Extrato.")
+    
     if errors:
         return {"errors": errors}
 
-    # Normalizar UCs
+    # Normalizar IDs de UC para comparação (Texto limpo)
     df_rateio = df_rateio.copy()
     df_extrato = df_extrato.copy()
-    df_rateio[uc_r_col] = df_rateio[uc_r_col].str.strip().str.replace(r"\.0$", "", regex=True)
-    df_extrato[uc_e_col] = df_extrato[uc_e_col].str.strip().str.replace(r"\.0$", "", regex=True)
+    df_rateio[uc_r_col] = df_rateio[uc_r_col].astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
+    df_extrato[uc_e_col] = df_extrato[uc_e_col].astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
 
     ucs_rateio = df_rateio[uc_r_col].unique().tolist()
-
-    # Usar competência extenso ou numérica como chave de mês
     comp_key = comp_ext_col or comp_col
 
-    # Construir set de (uc, competencia) no extrato
+    # Criar registro de faturas existentes
     extrato_pairs = set()
     if comp_key:
         for _, row in df_extrato.iterrows():
-            extrato_pairs.add((row[uc_e_col], row[comp_key]))
+            extrato_pairs.add((str(row[uc_e_col]), str(row[comp_key])))
 
-    # Obter leitura mais recente por competência
+    # Calcular prazos por competência
     comp_leitura = {}
     if comp_key and leitura_col:
         for _, row in df_extrato.iterrows():
-            c = row[comp_key]
-            l = parse_date(row[leitura_col])
+            c = str(row[comp_key])
+            l = parse_date(str(row[leitura_col]))
             if l and c not in comp_leitura:
                 comp_leitura[c] = l
 
-    # ---- Faturas faltantes --------------------------------------------------
+    # ---- Identificar Falhas de Captura ----
     missing: dict[str, list] = {}
     if comp_key:
-        competencias = df_extrato[comp_key].unique().tolist()
+        competencias = [c for c in df_extrato[comp_key].unique() if c]
         for comp in competencias:
-            if not comp:
-                continue
             leitura = comp_leitura.get(comp)
             if leitura:
                 limite = leitura + timedelta(days=DELAY_DAYS)
                 if TODAY <= limite:
-                    continue  # ainda dentro do prazo
+                    continue 
 
             for uc in ucs_rateio:
-                if (uc, comp) not in extrato_pairs:
-                    # buscar info da UC no rateio
+                if (str(uc), str(comp)) not in extrato_pairs:
                     row_r = df_rateio[df_rateio[uc_r_col] == uc]
-                    usina = row_r.iloc[0][usina_r_col] if usina_r_col and not row_r.empty else "—"
-                    apelido = row_r.iloc[0][apelido_col] if apelido_col and not row_r.empty else "—"
+                    usina = row_r.iloc[0][usina_r_col] if usina_r_col else "—"
+                    apelido = row_r.iloc[0][apelido_col] if apelido_col else "—"
 
                     if comp not in missing:
                         missing[comp] = []
@@ -340,46 +358,40 @@ def analyze(df_rateio: pd.DataFrame, df_extrato: pd.DataFrame) -> dict:
                         "uc": uc,
                         "usina": usina,
                         "apelido": apelido,
-                        "titular": "—",
                         "comp": comp,
                         "leitura": leitura,
                         "limite": leitura + timedelta(days=DELAY_DAYS) if leitura else None,
                     })
 
-    # ---- Inadimplência ──────────────────────────────────────────────────────
+    # ---- Identificar Inadimplência ----
     inadimplentes: dict[str, list] = {}
     total_por_comp: dict[str, float] = {}
 
-    if status_col and comp_key:
+    if comp_key:
         for _, row in df_extrato.iterrows():
-            comp = row[comp_key]
-            valor_str = row[valor_col] if valor_col else "0"
+            comp = str(row[comp_key])
+            
+            v_raw = str(row[valor_col]) if valor_col else "0"
             try:
-                valor = float(str(valor_str).replace("R$", "").replace(".", "").replace(",", ".").strip())
+                valor = float(v_raw.replace("R$", "").replace(".", "").replace(",", ".").strip())
             except:
                 valor = 0.0
 
             total_por_comp[comp] = total_por_comp.get(comp, 0.0) + valor
 
-            status = row[status_col]
-            is_pago = bool(pd.Series([status]).str.contains(r"^pago$", case=False, regex=True).any())
-            if is_pago:
+            status = str(row[status_col]) if status_col else ""
+            if "pago" in status.lower():
                 continue
-
-            uc = row[uc_e_col]
-            titular = row[titular_col] if titular_col else "—"
-            usina = row[usina_e_col] if usina_e_col else "—"
-            pago = row[pago_col] if pago_col else "0"
 
             if comp not in inadimplentes:
                 inadimplentes[comp] = []
+            
             inadimplentes[comp].append({
-                "uc": uc,
-                "titular": titular,
-                "usina": usina,
+                "uc": row[uc_e_col],
+                "titular": row[titular_col] if titular_col else "—",
+                "usina": row[usina_e_col] if usina_e_col else "—",
                 "valor": valor,
-                "status": status,
-                "pago": pago,
+                "status": status
             })
 
     return {
