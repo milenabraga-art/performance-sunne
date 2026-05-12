@@ -13,20 +13,23 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 2. CSS CUSTOMIZADO (BACKOFFICE SUNNE STYLE) ──────────────────────────────
+# ── 2. CSS BACKOFFICE SUNNE (DESIGN RUBI & RESPONSIVO) ──────────────────────
 SUNNE_THEME_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
 
-/* Reset Geral */
-[data-testid="stAppViewContainer"] { background-color: #F8F9FA; }
+:root {
+    --rubi: #33001A;
+    --laranja: #F36E21;
+}
+
+[data-testid="stAppViewContainer"] { background-color: #FDF8F5; }
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 #MainMenu, footer, header { visibility: hidden; }
-.block-container { padding: 0 !important; }
 
-/* Barra Superior (Top Bar) */
+/* Top Bar */
 .top-header {
-    background-color: #33001A;
+    background-color: var(--rubi);
     height: 60px;
     display: flex;
     align-items: center;
@@ -36,76 +39,52 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     top: 0; left: 0; right: 0;
     z-index: 999;
 }
-.header-left { display: flex; align-items: center; gap: 15px; }
-.header-right { color: white; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
-/* Menu Lateral (Sidebar / Abas) */
+/* Sidebar Rubi */
 [data-testid="stSidebar"] {
-    background-color: white !important;
-    border-right: 1px solid #E0E0E0;
-    padding-top: 80px !important;
+    background-color: var(--rubi) !important;
+    border-right: 1px solid rgba(255,255,255,0.1);
 }
-[data-testid="stSidebarNav"] { display: none; } /* Esconde o padrão */
+[data-testid="stSidebarNav"] { display: none; }
 
-.menu-item {
-    padding: 12px 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    color: #666;
-    text-decoration: none;
-    font-size: 14px;
-    transition: 0.3s;
-    border-left: 4px solid transparent;
+/* Botões da Sidebar */
+.stButton>button {
+    width: 100%;
+    background-color: transparent !important;
+    color: white !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    text-align: left !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
 }
-.menu-item:hover { background-color: #FFF5F0; color: #F36E21; }
-.menu-item-active { 
-    background-color: #FFF5F0; 
-    color: #F36E21 !important; 
-    border-left: 4px solid #F36E21;
-    font-weight: 700;
+.stButton>button:hover {
+    background-color: var(--laranja) !important;
+    border-color: var(--laranja) !important;
 }
 
-/* Card de Perfil (Igual à imagem 2) */
-.profile-card {
-    background: white;
-    border-radius: 20px;
-    padding: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    position: fixed;
-    top: 70px; right: 20px;
-    width: 300px;
-    z-index: 1000;
-    border: 1px solid #EEE;
-}
-.profile-name { font-weight: 700; font-size: 16px; color: #333; margin-bottom: 2px; }
-.profile-email { font-size: 13px; color: #888; margin-bottom: 15px; }
-.profile-action {
-    padding: 10px 0;
-    border-top: 1px solid #F5F5F5;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    color: #333;
-    cursor: pointer;
-}
+/* KPIs */
+.kpi-box { background: white; border-radius: 15px; padding: 1rem; border: 1px solid #EAD8D0; text-align: center; }
+.kpi-label { font-size: 10px; color: #7A5060; text-transform: uppercase; font-weight: 700; }
+.kpi-value { font-family: 'DM Sans', sans-serif; font-size: 20px; font-weight: 700; color: var(--rubi); }
+.kpi-value.danger { color: #FF365E; }
 
-/* Tabelas e Botões */
-.stButton>button { background-color: #F36E21 !important; color: white !important; border-radius: 8px !important; border: none !important; }
-.sunne-table th { background-color: #F8F9FA !important; color: #666 !important; text-transform: uppercase; font-size: 11px; }
+/* Tabelas Estilo Backoffice */
+.sunne-table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; }
+.sunne-table th { text-align: left; padding: 10px; background: #F8F9FA; color: #666; border-bottom: 2px solid #EEE; font-size: 11px; text-transform: uppercase; }
+.sunne-table td { padding: 10px; border-bottom: 1px solid #F5F5F5; }
 
-/* Login */
 .login-box {
-    max-width: 400px; margin: 100px auto; padding: 40px;
-    background: white; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.05);
-    text-align: center; border: 1px solid #F0F0F0;
+    max-width: 380px; margin: 100px auto; padding: 40px;
+    background: white; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    text-align: center;
 }
 </style>
 """
 
-# ── 3. FUNÇÕES DE INFRAESTRUTURA ─────────────────────────────────────────────
+# ── 3. FUNÇÕES DE INFRAESTRUTURA E CÁLCULOS ──────────────────────────────────
 USERS_FILE = "users_db.json"
+TODAY = datetime.now()
+DELAY_DAYS = 40 
 
 def load_users():
     if not os.path.exists(USERS_FILE):
@@ -115,117 +94,197 @@ def load_users():
     with open(USERS_FILE, "r") as f: return json.load(f)
 
 def clean_val(v):
-    if not v: return 0.0
+    if not v or str(v).lower() in ("nan", ""): return 0.0
     s = str(v).replace("R$", "").replace(" ", "").strip()
     if "," in s and "." in s: s = s.replace(".", "").replace(",", ".")
     elif "," in s: s = s.replace(",", ".")
     try: return float(s)
     except: return 0.0
 
-# ── 4. LÓGICA DE LOGIN & HEADER ──────────────────────────────────────────────
+def csv_export(rows, cols, headers):
+    output = io.StringIO()
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df = df[cols]
+        df.columns = headers
+        df.to_csv(output, index=False, sep=';', encoding='utf-8-sig')
+    return output.getvalue().encode('utf-8-sig')
+
+def load_planilha(file):
+    try:
+        df = pd.read_excel(file, header=None) if not file.name.endswith('.csv') else pd.read_csv(file, header=None, sep=None, engine='python')
+        for i, row in df.head(20).iterrows():
+            row_l = [str(c).strip().lower() for c in row]
+            if any("uc nova" in s or "número da uc" in s for s in row_l):
+                df.columns = [str(c).strip() for c in row]
+                df = df.iloc[i+1:].reset_index(drop=True)
+                break
+        df.columns = [str(c).strip() for c in df.columns]
+        return df.dropna(how='all').fillna("")
+    except: return None
+
+# ── 4. LÓGICA DE ANÁLISE (O QUE TINHA SUMIDO) ────────────────────────────────
+def analyze(df_r, df_e):
+    # Identificar colunas automaticamente
+    uc_r = next((c for c in df_r.columns if "UC Nova" in c), df_r.columns[0])
+    uc_e = next((c for c in df_e.columns if "Número da UC" in c), df_e.columns[0])
+    comp_c = next((c for c in df_e.columns if "Competência" in c), None)
+    leitura_c = next((c for c in df_e.columns if "Leitura Atual" in c), None)
+    valor_c = next((c for c in df_e.columns if "Total a Pagar" in c), None)
+    status_c = next((c for c in df_e.columns if "Status" in c), None)
+    
+    # Limpeza básica de IDs
+    df_r[uc_r] = df_r[uc_r].astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
+    df_e[uc_e] = df_e[uc_e].astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
+
+    missing = {}; inad_mes = {}; t_gerado = {}; t_pago = {}
+    extrato_pairs = set(); comp_leitura = {}
+
+    for _, row in df_e.iterrows():
+        uc, comp = str(row[uc_e]), str(row[comp_c])
+        status = str(row[status_c]).lower() if status_c else ""
+        valor = clean_val(row[valor_c])
+
+        extrato_pairs.add((uc, comp))
+        t_gerado[comp] = t_gerado.get(comp, 0.0) + valor
+        if "pago" in status: t_pago[comp] = t_pago.get(comp, 0.0) + valor
+        
+        # Inadimplência apenas VENCIDOS
+        if "vencido" in status:
+            if comp not in inad_mes: inad_mes[comp] = []
+            inad_mes[comp].append({
+                "uc": uc, "valor": valor, "status": "Vencido",
+                "titular": str(row.get("Titular da Conta", "—"))
+            })
+
+        if comp not in comp_leitura:
+            for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+                try: 
+                    comp_leitura[comp] = datetime.strptime(str(row[leitura_c]).strip(), fmt)
+                    break
+                except: comp_leitura[comp] = None
+
+    # Cruzamento para Captura Faltante
+    ucs_r = df_r[uc_r].unique().tolist()
+    for comp in df_e[comp_c].unique():
+        if not comp: continue
+        leitura = comp_leitura.get(comp)
+        if leitura and TODAY <= (leitura + timedelta(days=DELAY_DAYS)): continue
+        for uc in ucs_r:
+            if (uc, comp) not in extrato_pairs:
+                r_data = df_r[df_r[uc_r] == uc]
+                if comp not in missing: missing[comp] = []
+                missing[comp].append({
+                    "uc": uc, "apelido": r_data.iloc[0].get("Apelido UC", "—"), 
+                    "usina": r_data.iloc[0].get("Usina", "—"), "comp": comp
+                })
+
+    return {"missing": missing, "inad": inad_mes, "t_gerado": t_gerado, "t_pago": t_pago}
+
+# ── 5. INTERFACE (O NOVO LOOK COM A VELHA INTELIGÊNCIA) ──────────────────────
+def table_html(rows, cols, headers):
+    h = '<table class="sunne-table"><thead><tr>'
+    for head in headers: h += f"<th>{head}</th>"
+    h += "</tr></thead><tbody>"
+    for r in rows:
+        h += "<tr>"
+        for i, c in enumerate(cols):
+            val = r.get(c, "—")
+            if c == "valor": val = f"R$ {float(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            h += f"<td>{val}</td>"
+        h += "</tr>"
+    return h + "</tbody></table>"
+
 def main():
     st.markdown(SUNNE_THEME_CSS, unsafe_allow_html=True)
     
     if "user_data" not in st.session_state:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
-        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=150) # Logo real
-        st.markdown("<h3 style='margin-top:20px'>Sunne Hub</h3>", unsafe_allow_html=True)
+        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=120)
         with st.form("login"):
-            e = st.text_input("E-mail corporativo")
-            s = st.text_input("Senha", type="password")
+            e = st.text_input("E-mail corporativo"); s = st.text_input("Senha", type="password")
             if st.form_submit_button("Acessar Sistema", use_container_width=True):
                 users = load_users()
                 found = next((u for u in users if u["email"] == e and u["password"] == s), None)
-                if found:
-                    st.session_state["user_data"] = found
-                    st.rerun()
-                else: st.error("Credenciais inválidas.")
-        st.markdown('</div>', unsafe_allow_html=True)
-        return
+                if found: st.session_state["user_data"] = found; st.rerun()
+                else: st.error("Incorreto.")
+        st.markdown('</div>', unsafe_allow_html=True); return
 
     user = st.session_state["user_data"]
 
-    # Barra Superior (Header)
-    st.markdown(f"""
-        <div class="top-header">
-            <div class="header-left">
-                <img src="https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png" height="30">
-            </div>
-            <div class="header-right">
-                {user['name']} ▾
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    # Top Header Rubi
+    st.markdown(f'<div class="top-header"><img src="https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png" height="30"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:60px"></div>', unsafe_allow_html=True)
 
-    # Menu Lateral (Aparecia de Abas)
+    # Sidebar Rubi
     with st.sidebar:
-        st.markdown(f'<div style="height:20px"></div>', unsafe_allow_html=True)
+        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=100)
+        with st.popover(f"👤 {user['name']}", use_container_width=True):
+            st.write(f"**{user['name']}**"); st.caption(user['email'])
+            if st.button("🚪 Sair"): del st.session_state["user_data"]; st.rerun()
         
-        # Simulação das abas da imagem 1
-        menu_items = {
-            "📊 Faturamento": "performance",
-            "📈 Rateio": "rateio",
-            "👥 Usuários": "usuarios",
-            "⚙️ Configurações": "configs"
-        }
-        
-        if "current_page" not in st.session_state:
-            st.session_state["current_page"] = "performance"
-            
-        for label, page in menu_items.items():
-            is_active = "menu-item-active" if st.session_state["current_page"] == page else ""
-            if st.button(label, key=f"btn_{page}", use_container_width=True):
-                st.session_state["current_page"] = page
-                st.rerun()
+        st.write("---")
+        if "page" not in st.session_state: st.session_state.page = "perf"
+        if st.button("📊 Faturamento"): st.session_state.page = "perf"
+        if st.button("👥 Analistas"): st.session_state.page = "users"
 
-    # Conteúdo Principal (Ajuste de margem por causa do Header Fixo)
-    st.markdown('<div style="height:80px"></div>', unsafe_allow_html=True)
-    
-    page = st.session_state["current_page"]
-
-    # ── ABA: FATURAMENTO (PERFORMANCE) ──────────────────────────────────────────
-    if page == "performance":
-        st.markdown("### 📊 Análise de Performance")
+    # Conteúdo da Aba Faturamento
+    if st.session_state.page == "perf":
+        st.subheader("📊 Análise de Performance")
         
-        # Filtros (Estilo imagem 1)
+        # Busca Avançada (Visual)
         with st.expander("🔍 Filtros Avançados", expanded=True):
             c1, c2, c3 = st.columns(3)
-            search_uc = c1.text_input("Buscar pela UC", placeholder="Ex: 58730075")
-            comp_filter = c2.selectbox("Competência", ["Todas", "03/2026", "02/2026", "01/2026"])
-            status_filter = c3.selectbox("Status", ["Todos", "Vencido", "Pago", "Cancelado"])
-            st.button("Buscar", type="primary")
+            search_uc = c1.text_input("Buscar pela UC")
+            comp_f = c2.selectbox("Competência", ["Todas"])
+            stat_f = c3.selectbox("Status", ["Todos"])
 
-        # Tabs de funcionalidade interna
-        t1, t2 = st.tabs(["📂 Importar Planilhas", "💳 Inadimplência"])
+        t1, t2, t3 = st.tabs(["📂 Importar Planilhas", "🔍 Gestão de Captura", "💳 Inadimplência"])
         
         with t1:
-            st.info("Suba os arquivos para processar os dados.")
+            st.info("Suba os arquivos para realizar o cruzamento de dados.")
             c1, c2 = st.columns(2)
             f_r = c1.file_uploader("Rateio")
             f_e = c2.file_uploader("Extrato")
             if f_r and f_e:
-                if st.button("🔄 Rodar Análise"):
-                    st.success("Dados carregados com sucesso!")
+                if st.button("🔄 Rodar Análise Completa", use_container_width=True):
+                    with st.spinner("Analisando faturas..."):
+                        res = analyze(load_planilha(f_r), load_planilha(f_e))
+                        st.session_state["analysis_result"] = res
+                        st.success("✓ Análise concluída!")
 
-    # ── ABA: USUÁRIOS (GERENCIAMENTO) ──────────────────────────────────────────
-    elif page == "usuarios":
-        st.markdown("### 👥 Gestão de Analistas")
-        # Visual do card de perfil para teste
-        with st.expander("Visualizar Perfil (Exemplo da Imagem 2)"):
-            st.markdown(f"""
-                <div style="background:white; padding:20px; border-radius:15px; border:1px solid #EEE;">
-                    <div class="profile-name">{user['name']}</div>
-                    <div class="profile-email">{user['email']}</div>
-                    <div class="profile-action">📑 Termos de Uso</div>
-                    <div class="profile-action">🚀 Ir para Workspaces</div>
-                    <div class="profile-action" style="color:red">➡️ Sair</div>
-                </div>
-            """, unsafe_allow_html=True)
+        # RESULTADOS (O QUE VOLTOU A APARECER)
+        res = st.session_state.get("analysis_result")
+        if res:
+            with t2:
+                miss = res["missing"]
+                if not miss: st.success("✅ Todas as faturas capturadas!")
+                for comp, items in miss.items():
+                    with st.expander(f"⚠️ {comp} - {len(items)} faltantes"):
+                        csv_cap = csv_export(items, ["uc", "apelido", "usina"], ["UC", "Nome", "Usina"])
+                        st.download_button(f"⬇ Baixar CSV {comp}", csv_cap, f"captura_{comp}.csv", "text/csv")
+                        st.markdown(table_html(items, ["uc", "apelido", "usina"], ["UC", "Nome", "Usina"]), unsafe_allow_html=True)
+            
+            with t3:
+                inad = res["inad"]
+                for comp, rows in inad.items():
+                    vencido = sum(r["valor"] for r in rows)
+                    gerado = res["t_gerado"].get(comp, 0.0)
+                    taxa = (vencido / gerado * 100) if gerado > 0 else 0
+                    st.markdown(f"#### Competência: {comp}")
+                    st.markdown(f'<div style="display:flex; gap:15px; margin-bottom:15px;">'
+                                f'<div class="kpi-box"><div class="kpi-label">Gerado</div><div class="kpi-value">R$ {gerado:,.2f}</div></div>'
+                                f'<div class="kpi-box"><div class="kpi-label">Vencido</div><div class="kpi-value danger">R$ {vencido:,.2f}</div></div>'
+                                f'<div class="kpi-box"><div class="kpi-label">Inadimplência</div><div class="kpi-value danger">{taxa:.1f}%</div></div>'
+                                f'</div>', unsafe_allow_html=True)
+                    with st.expander(f"Ver lista de vencidos - {comp}"):
+                        csv_in = csv_export(rows, ["uc", "titular", "valor"], ["UC", "Titular", "Valor"])
+                        st.download_button(f"⬇ Exportar Vencidos {comp}", csv_in, f"inad_{comp}.csv", "text/csv")
+                        st.markdown(table_html(rows, ["uc", "titular", "valor", "status"], ["UC", "Titular", "Valor", "Status"]), unsafe_allow_html=True)
 
-    # Botão de Logoff (Simulando o card da imagem 2)
-    if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
-        del st.session_state["user_data"]
-        st.rerun()
+    elif st.session_state.page == "users":
+        st.subheader("👥 Gestão de Analistas")
+        # Aqui você pode cadastrar outros analistas futuramente
 
 if __name__ == "__main__":
     main()
