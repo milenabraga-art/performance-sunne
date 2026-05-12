@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 2. CSS BACKOFFICE (FORÇANDO BOTÕES LARANJA E TEXTO BRANCO) ───────────────
+# ── 2. CSS BACKOFFICE (BOTÕES LARANJA ESTÁTICOS) ──────────────────────────────
 SUNNE_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
@@ -34,37 +34,33 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     border-right: 1px solid rgba(255,255,255,0.1);
 }
 
-/* FORÇAR TEXTO BRANCO EM TODA A SIDEBAR */
+/* FORÇAR TEXTO BRANCO NA SIDEBAR */
 [data-testid="stSidebar"] * { 
     color: white !important; 
 }
 
-/* BOTÕES DA SIDEBAR - LARANJA COM TEXTO BRANCO (SELETORES DE ALTA PRECISÃO) */
-div[data-testid="stSidebar"] button {
-    background-color: #F36E21 !important;
-    color: white !important;
+/* BOTÕES DA SIDEBAR - LARANJA ESTÁTICO (COR FIXA) */
+div[data-testid="stSidebar"] .stButton > button {
+    background-color: #F36E21 !important; /* Laranja Sunne fixo */
+    color: white !important;             /* Texto branco fixo */
     border: none !important;
     padding: 10px 15px !important;
-    border-radius: 8px !important;
-    font-weight: 700 !important; /* Texto em negrito para ler melhor */
-    margin-bottom: 8px !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;         /* Negrito para leitura */
+    margin-bottom: 10px !important;
     width: 100% !important;
+    opacity: 1 !important;               /* Sem transparência */
     display: flex !important;
     justify-content: center !important;
 }
 
-div[data-testid="stSidebar"] button:hover {
-    background-color: #d65a1b !important;
-    border: none !important;
+/* Efeito leve ao passar o mouse para indicar que é clicável */
+div[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: #ff8342 !important; /* Um laranja levemente mais claro */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* Ajuste dos ícones dentro dos botões (se houver) */
-div[data-testid="stSidebar"] button p {
-    color: white !important;
-    font-weight: 700 !important;
-}
-
-/* Estilo do Login e KPIs permanecem iguais */
+/* Estilo do Login e KPIs */
 .login-card {
     background: white; padding: 3rem; border-radius: 25px;
     box-shadow: 0 15px 35px rgba(51, 0, 26, 0.1);
@@ -75,7 +71,7 @@ div[data-testid="stSidebar"] button p {
 </style>
 """
 
-# ── 3. UTILITÁRIOS E SEGURANÇA (LOGICA INALTERADA) ───────────────────────────
+# ── 3. UTILITÁRIOS E SEGURANÇA ────────────────────────────────────────────────
 USERS_FILE = "users.json"
 TODAY = datetime.now()
 DELAY_DAYS = 40 
@@ -113,7 +109,7 @@ def csv_from_list(rows, cols, headers):
         df_export.to_csv(output, index=False, sep=';', encoding='utf-8-sig')
     return output.getvalue().encode('utf-8-sig')
 
-# ── 4. LÓGICA DE ANÁLISE (INTELIGÊNCIA PRESERVADA) ───────────────────────────
+# ── 4. LÓGICA DE ANÁLISE ─────────────────────────────────────────────────────
 def load_planilha(file):
     if file is None: return None
     try:
@@ -154,7 +150,9 @@ def analyze_performance(df_r, df_e):
         if "vencido" in status:
             t_vencido[comp] = t_vencido.get(comp, 0.0) + valor
             if comp not in inad_res: inad_res[comp] = []
-            inad_res[comp].append({"uc": row[uc_e_col], "valor": valor, "titular": row[titular_col] if titular_col else "—"})
+            inad_res[comp].append({
+                "uc": row[uc_e_col], "valor": valor, "titular": row[titular_col] if titular_col else "—"
+            })
 
     extrato_set = set(zip(df_e['UC_NORM'], df_e[comp_col].astype(str)))
     ucs_rateio = df_r['UC_NORM'].unique()
@@ -224,6 +222,7 @@ def main():
                     pago = res["t_pago"].get(comp, 0.0)
                     vencido = res["t_vencido"].get(comp, 0.0)
                     taxa = (vencido / gerado * 100) if gerado > 0 else 0
+                    
                     st.markdown(f"### {comp}")
                     c1, c2, c3, c4 = st.columns(4)
                     c1.metric("Gerado", f"R$ {gerado:,.2f}")
@@ -233,6 +232,6 @@ def main():
                     with st.expander("Ver lista de clientes inadimplentes"):
                         st.table(pd.DataFrame(rows))
     else:
-        st.title(f"Aba {st.session_state.page.capitalize()}")
+        st.title(f"Página {st.session_state.page.capitalize()}")
 
 if __name__ == "__main__": main()
