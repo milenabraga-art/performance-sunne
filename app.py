@@ -250,3 +250,11 @@ def main():
                         st.dataframe(
                             df_inad.style.apply(color_rows, axis=1),
                             use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.success("Nenhum cliente com atraso crítico (>60 dias) nesta competência.")
+                    st.write("---")
+
+if __name__ == "__main__":
+    main()
