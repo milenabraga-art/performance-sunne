@@ -5,99 +5,72 @@ import os
 from datetime import datetime, timedelta
 import io
 
-# ── 1. CONFIGURAÇÃO DA PÁGINA ────────────────────────────────────────────────
+# ── 1. Configuração da página ────────────────────────────────────────────────
 st.set_page_config(
     page_title="Sunne Performance",
     page_icon="☀️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# ── 2. CSS CUSTOMIZADO (DESIGN CLAUDE + SIDEBAR MINIMALISTA) ────────────────
+# ── 2. Estilização Sunne® (Design Claude Original) ──────────────────────────
 SUNNE_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-
-/* Reset e base */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 #MainMenu, footer, header { visibility: hidden; }
-.block-container { padding-top: 0 !important; }
-
+.block-container { padding-top: 0 !important; max-width: 1100px; }
 :root {
     --rubi: #33001A; --dourado: #FAB200; --magenta: #FF365E;
-    --laranja: #F36E21; --bg: #FDF8F5; --card-bg: #FFFFFF; --border: #EAD8D0;
+    --laranja: #FF6B1A; --turquesa: #69E0CF; --bege: #F2C7A3;
+    --bg: #FDF8F5; --card-bg: #FFFFFF; --muted: #7A5060; --border: #EAD8D0;
 }
-
-/* Sidebar Minimalista Rubi */
-[data-testid="stSidebar"] {
-    background-color: var(--rubi) !important;
-    border-right: 1px solid rgba(255,255,255,0.1);
-}
-[data-testid="stSidebar"] * { color: white !important; }
-
-/* Botões da Sidebar como Texto */
-[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
-    background-color: transparent !important;
-    border: none !important;
-    padding: 0px !important;
-    margin-bottom: 20px !important;
-    width: 100% !important;
-    display: flex !important;
-    justify-content: flex-start !important;
-}
-[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] p {
-    font-size: 16px !important;
-    font-weight: 500 !important;
-    transition: 0.3s;
-}
-[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover p {
-    color: var(--laranja) !important;
-    font-weight: 700 !important;
-}
-
-/* Header Estilo Claude */
 .sunne-header {
-    background: var(--rubi); padding: 1rem 2rem; display: flex;
+    background: #33001A; padding: 1rem 2rem; display: flex;
     align-items: center; justify-content: space-between;
-    margin: 0rem -1rem 1.5rem -1rem;
+    margin: -1rem -1rem 1.5rem -1rem; border-radius: 0;
 }
 .sunne-logo-mark {
-    width: 40px; height: 40px; background: var(--dourado); border-radius: 10px;
+    width: 40px; height: 40px; background: #FAB200; border-radius: 10px;
     display: inline-flex; align-items: center; justify-content: center;
-    font-family: 'Syne', sans-serif; font-weight: 700; color: var(--rubi); margin-right: 12px;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px;
+    color: #33001A; margin-right: 12px; vertical-align: middle;
 }
-.sunne-header-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: #FFFFFF; }
-
-/* Cards e KPIs Claude Style */
+.sunne-header-title {
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px;
+    color: #FFFFFF; display: inline; vertical-align: middle;
+}
+.sunne-header-sub { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+.user-pill {
+    background: rgba(255,255,255,0.12); border-radius: 8px;
+    padding: 4px 12px; font-size: 12px; color: #FFFFFF;
+}
 .sunne-card {
-    background: #FFFFFF; border: 1px solid var(--border);
+    background: #FFFFFF; border: 1px solid #EAD8D0;
     border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;
 }
+.sunne-card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; color: #33001A; margin-bottom: 1rem; }
 .kpi-row { display: flex; gap: 12px; margin-top: 1rem; flex-wrap: wrap; }
-.kpi-box {
-    background: #FBF5F0; border-radius: 10px; padding: .85rem 1.1rem; flex: 1; min-width: 150px;
-}
-.kpi-label { font-size: 11px; color: #7A5060; text-transform: uppercase; font-weight: 600; }
-.kpi-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--rubi); }
-.kpi-value.danger { color: var(--magenta); }
-
-/* Tabelas Claude Style */
+.kpi-box { background: #FBF5F0; border-radius: 10px; padding: .85rem 1.1rem; flex: 1; min-width: 150px; }
+.kpi-label { font-size: 11px; color: #7A5060; margin-bottom: 4px; text-transform: uppercase; }
+.kpi-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: #33001A; }
+.kpi-value.danger { color: #FF365E; }
+.kpi-value.ok { color: #0A8A7A; }
 .sunne-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.sunne-table th { text-align: left; padding: .6rem; background: #FBF5F0; color: #7A5060; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; }
-.sunne-table td { padding: .6rem; border-bottom: .5px solid #F0E4DC; color: #1A0A0F; }
-
-/* Login Claude Style */
-.login-card {
-    max-width: 400px; margin: 10vh auto; padding: 3rem; background: white;
-    border-radius: 20px; border: 1px solid var(--border); text-align: center;
-}
+.sunne-table th { text-align: left; padding: .55rem; background: #FBF5F0; color: #7A5060; border-bottom: 1px solid #EAD8D0; font-size: 11px; text-transform: uppercase; }
+.sunne-table td { padding: .55rem; border-bottom: .5px solid #F0E4DC; color: #1A0A0F; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.badge-warn { background: #FFF0F3; color: #CC1A3A; }
+.badge-info { background: #FFF8E6; color: #7A5010; }
+.login-wrap { max-width: 420px; margin: 6vh auto; padding: 3rem 2.5rem; background: #FFFFFF; border-radius: 20px; border: 1px solid #EAD8D0; text-align: center; }
+.login-mark { width: 60px; height: 60px; background: #33001A; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.2rem; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 26px; color: #FAB200; }
 </style>
 """
 
-# ── 3. UTILITÁRIOS E SEGURANÇA ────────────────────────────────────────────────
+# ── 3. Utilitários de Lógica (Recuperados do Código Funcional) ───────────────
 USERS_FILE = "users.json"
 TODAY = datetime.now()
-DELAY_DAYS = 40 
+DELAY_DAYS = 40
 
 def load_users():
     if not os.path.exists(USERS_FILE):
@@ -125,159 +98,166 @@ def style_critical(row):
     if dias > 90: return ['background-color: #ffcccc; color: #990000; font-weight: bold'] * len(row)
     return ['background-color: #fff4cc; color: #856404; font-weight: bold'] * len(row)
 
-# ── 4. LÓGICA DE ANÁLISE ROBUSTA ─────────────────────────────────────────────
-def load_planilha(file):
-    if file is None: return None
-    try:
-        df = pd.read_excel(file, header=None) if not file.name.endswith('.csv') else pd.read_csv(file, header=None, sep=None, engine='python')
-        for i, row in df.head(20).iterrows():
-            row_l = [str(c).strip().lower() for c in row]
-            if any("uc nova" in s or "número da uc" in s for s in row_l):
-                df.columns = [str(c).strip() for c in row]
-                df = df.iloc[i+1:].reset_index(drop=True)
-                break
-        df.columns = [str(c).strip() for c in df.columns]
-        return df.dropna(how='all').fillna("")
-    except: return None
+# ── 4. Lógica de Análise (Focada em Faturamento e Inadimplência Crítica) ──────
+def analyze(df_r, df_e):
+    # Identificar colunas dinamicamente
+    def find_col(df, keywords):
+        for k in keywords:
+            for c in df.columns:
+                if k.lower() in str(c).lower(): return c
+        return None
 
-def analyze_performance(df_r, df_e):
-    # Identificação de Colunas
-    uc_r_col = next((c for c in df_r.columns if "UC Nova" in c), df_r.columns[0])
-    uc_e_col = next((c for c in df_e.columns if "Número da UC" in c), df_e.columns[0])
-    comp_col = next((c for c in df_e.columns if "Competência" in c), None)
-    status_col = next((c for c in df_e.columns if "Status" in c), None)
-    valor_col = next((c for c in df_e.columns if "Total a Pagar" in c), None)
-    venc_col = next((c for c in df_e.columns if "Vencimento" in c), None)
-    titular_col = next((c for c in df_e.columns if "Titular" in c), None)
+    uc_r_col = find_col(df_r, ["uc nova", "atual", "uc"])
+    uc_e_col = find_col(df_e, ["número da uc", "numero da uc", "uc"])
+    comp_col = find_col(df_e, ["competência", "mes", "mês"])
+    status_col = find_col(df_e, ["status"])
+    valor_col = find_col(df_e, ["total a pagar", "valor"])
+    venc_col = find_col(df_e, ["vencimento"])
+    titular_col = find_col(df_e, ["titular"])
+    usina_col = find_col(df_r, ["usina"])
+    apelido_col = find_col(df_r, ["apelido"])
 
     df_r['UC_NORM'] = df_r[uc_r_col].apply(normalize_uc)
     df_e['UC_NORM'] = df_e[uc_e_col].apply(normalize_uc)
 
-    # Processamento de Datas
     if venc_col:
         df_e[venc_col] = pd.to_datetime(df_e[venc_col], errors='coerce', dayfirst=True)
 
-    missing_res = {}; inad_res = {}; t_gerado = {}; t_pago = {}; t_vencido = {}
-    critical_inad = []
+    missing = {}; inadimplentes = {}; total_gerado_mes = {}; critical_inad = []
 
     for _, row in df_e.iterrows():
-        uc = str(row['UC_NORM'])
-        comp = str(row[comp_col]) if comp_col else "Geral"
-        status = str(row[status_col]).lower() if status_col else ""
+        comp = str(row[comp_col])
         valor = clean_val(row[valor_col])
-        vencimento = row[venc_col] if venc_col else None
+        total_gerado_mes[comp] = total_gerado_mes.get(comp, 0.0) + valor
 
-        t_gerado[comp] = t_gerado.get(comp, 0.0) + valor
-        if "pago" in status: t_pago[comp] = t_pago.get(comp, 0.0) + valor
-        
+        status = str(row[status_col]).lower()
         if "vencido" in status:
-            t_vencido[comp] = t_vencido.get(comp, 0.0) + valor
-            item = {"uc": row[uc_e_col], "valor": valor, "titular": row[titular_col] if titular_col else "—", "status": "Vencido"}
-            if comp not in inad_res: inad_res[comp] = []
-            inad_res[comp].append(item)
+            uc = row[uc_e_col]
+            item = {"uc": uc, "titular": row.get(titular_col, "—"), "valor": valor, "status": status}
+            if comp not in inadimplentes: inadimplentes[comp] = []
+            inadimplentes[comp].append(item)
 
-            if pd.notnull(vencimento):
-                atraso = (TODAY - vencimento).days
+            if venc_col and pd.notnull(row[venc_col]):
+                atraso = (TODAY - row[venc_col]).days
                 if atraso > 60:
-                    critical_inad.append({"Titular": item["titular"], "UC": item["uc"], "Vencimento": vencimento.strftime('%d/%m/%Y'), "Dias de Atraso": atraso, "Valor": valor, "Mês Ref": comp})
+                    critical_inad.append({
+                        "Titular": item["titular"], "UC": item["uc"], 
+                        "Vencimento": row[venc_col].strftime('%d/%m/%Y'),
+                        "Dias de Atraso": atraso, "Valor": valor, "Mês Ref": comp
+                    })
 
-    # Cruzamento para faturas faltantes
+    # Cruzamento de Captura
     extrato_set = set(zip(df_e['UC_NORM'], df_e[comp_col].astype(str)))
     ucs_rateio = df_r['UC_NORM'].unique()
-    for comp_ext in df_e[comp_col].unique():
-        if not comp_ext or str(comp_ext).lower() == 'nan': continue
+    for comp_mes in df_e[comp_col].unique():
+        if not comp_mes or str(comp_mes) == "nan": continue
         for uc_norm in ucs_rateio:
-            if (uc_norm, str(comp_ext)) not in extrato_set:
-                r_orig = df_r[df_r['UC_NORM'] == uc_norm].iloc[0]
-                if comp_ext not in missing_res: missing_res[comp_ext] = []
-                missing_res[comp_ext].append({"uc": r_orig[uc_r_col], "apelido": r_orig.get("Apelido UC", "—"), "usina": r_orig.get("Usina", "—")})
+            if (uc_norm, str(comp_mes)) not in extrato_set:
+                r_data = df_r[df_r['UC_NORM'] == uc_norm].iloc[0]
+                if comp_mes not in missing: missing[comp_mes] = []
+                missing[comp_mes].append({
+                    "uc": r_data[uc_r_col], "usina": r_data.get(usina_col, "—"), 
+                    "apelido": r_data.get(apelido_col, "—"), "comp": comp_mes
+                })
 
-    return {"missing": missing_res, "inad": inad_res, "t_gerado": t_gerado, "t_pago": t_pago, "t_vencido": t_vencido, "critical": critical_inad}
+    return {
+        "missing": missing, "inadimplentes": inadimplentes,
+        "total_gerado": total_gerado_mes, "critical": critical_inad,
+        "n_ucs": len(ucs_rateio), "n_extrato": len(df_e)
+    }
 
-# ── 5. INTERFACE (DASHBOARD CLAUDE + LÓGICA CORRIGIDA) ──────────────────────
-def main():
-    st.markdown(SUNNE_CSS, unsafe_allow_html=True)
-    
-    if "user" not in st.session_state:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=120)
-        st.markdown('<div class="kpi-value">Acesso Restrito</div>', unsafe_allow_html=True)
-        with st.form("login"):
-            e = st.text_input("E-mail", value="milena@sunne.com.br")
-            s = st.text_input("Senha", type="password")
-            if st.form_submit_button("Entrar no Hub", use_container_width=True):
-                u = authenticate(e, s)
-                if u: st.session_state["user"] = u; st.rerun()
-        return
-
-    # Header Claude Style
+# ── 5. Componentes HTML e UI (Design Claude) ──────────────────────────────────
+def render_header(user):
     st.markdown(f"""
     <div class="sunne-header">
         <div>
             <span class="sunne-logo-mark">S</span>
             <span class="sunne-header-title">Sunne Performance</span>
+            <div class="sunne-header-sub" style="margin-left:52px">Gestão de Faturamento & Inadimplência</div>
         </div>
-        <div class="user-pill">{st.session_state["user"]["name"]} 👋</div>
+        <div class="user-pill">{user['name']} 👋</div>
     </div>
     """, unsafe_allow_html=True)
 
+def table_html(rows, cols, headers):
+    html = '<table class="sunne-table"><thead><tr>'
+    for h in headers: html += f"<th>{h}</th>"
+    html += "</tr></thead><tbody>"
+    for r in rows:
+        html += "<tr>"
+        for c in cols:
+            val = r.get(c, "—")
+            if c == "valor": val = f"R$ {float(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            html += f"<td>{val}</td>"
+        html += "</tr>"
+    return html + "</tbody></table>"
+
+# ── 6. Interface Principal ───────────────────────────────────────────────────
+def main():
+    st.markdown(SUNNE_CSS, unsafe_allow_html=True)
+
+    if "user" not in st.session_state:
+        st.markdown('<div class="login-wrap"><div class="login-mark">S</div><div class="login-title">Sunne Performance</div></div>', unsafe_allow_html=True)
+        with st.form("login"):
+            e = st.text_input("E-mail"); s = st.text_input("Senha", type="password")
+            if st.form_submit_button("Entrar", use_container_width=True):
+                u = authenticate(e, s)
+                if u: st.session_state["user"] = u; st.rerun()
+                else: st.error("Acesso negado.")
+        return
+
+    render_header(st.session_state["user"])
+
     with st.sidebar:
-        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=100)
-        st.write("---")
-        menu = ["Gerenciamento", "Usinas", "Geradores", "Faturamento"]
-        if "page" not in st.session_state: st.session_state.page = "Faturamento"
-        for item in menu:
-            if st.button(item): st.session_state.page = item
-        if st.button("🚪 Sair"): del st.session_state["user"]; st.rerun()
+        st.write(f"**{st.session_state.user['name']}**")
+        if st.button("🚪 Sair"):
+            st.session_state.clear(); st.rerun()
 
-    if st.session_state.page == "Faturamento":
-        t1, t2, t3 = st.tabs(["📂 Importar", "🔍 Captura", "💳 Inadimplência"])
-        
-        with t1:
-            st.markdown('<div class="sunne-card"><div class="kpi-label">Gestão de Arquivos</div>', unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            f_r = c1.file_uploader("Upload Rateio")
-            f_e = c2.file_uploader("Upload Extrato")
-            if f_r and f_e and st.button("🔄 Rodar Análise Completa", use_container_width=True):
-                st.session_state["results"] = analyze_performance(load_planilha(f_r), load_planilha(f_e))
-                st.success("✓ Processado!")
-            st.markdown('</div>', unsafe_allow_html=True)
+    t1, t2, t3 = st.tabs(["📂 Importar", "🔍 Captura", "💳 Inadimplência"])
 
-        res = st.session_state.get("results")
-        if res:
-            with t2:
-                for comp, items in res["missing"].items():
-                    with st.expander(f"⚠️ {comp} - {len(items)} faturas faltando"):
-                        st.table(pd.DataFrame(items))
-            
-            with t3:
-                # Blocos Mensais
-                for comp, rows in res["inad"].items():
-                    gerado = res["t_gerado"].get(comp, 1.0)
-                    vencido = res["t_vencido"].get(comp, 0.0)
-                    taxa = (vencido / gerado * 100)
-                    
-                    st.markdown(f"### Competência: {comp}")
-                    st.markdown(f"""
-                    <div class="kpi-row">
-                        <div class="kpi-box"><div class="kpi-label">Gerado</div><div class="kpi-value">R$ {gerado:,.2f}</div></div>
-                        <div class="kpi-box"><div class="kpi-label">Vencido</div><div class="kpi-value danger">R$ {vencido:,.2f}</div></div>
-                        <div class="kpi-box"><div class="kpi-label">Taxa</div><div class="kpi-value danger">{taxa:.1f}%</div></div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    with st.expander(f"Lista de Clientes Vencidos ({comp})"):
-                        st.table(pd.DataFrame(rows))
-                
-                # SEÇÃO CRÍTICA (REINSERIDA)
-                st.write("---")
-                st.markdown("## 🚨 Inadimplência Crítica (>60 dias)")
-                if res["critical"]:
-                    df_crit = pd.DataFrame(res["critical"])
-                    st.dataframe(df_crit.style.apply(style_critical, axis=1), use_container_width=True, hide_index=True)
-                else:
-                    st.success("Tudo em dia! Nenhuma fatura com atraso crítico.")
+    with t1:
+        st.markdown('<div class="sunne-card"><div class="sunne-card-title">Upload de Planilhas</div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        f_r = c1.file_uploader("Rateio", type=["xlsx", "csv"])
+        f_e = c2.file_uploader("Extrato", type=["xlsx", "csv"])
+        if f_r and f_e:
+            if st.button("Analisar Performance", use_container_width=True):
+                df_r = pd.read_excel(f_r) if f_r.name.endswith('xlsx') else pd.read_csv(f_r)
+                df_e = pd.read_excel(f_e) if f_e.name.endswith('xlsx') else pd.read_csv(f_e)
+                st.session_state["analysis"] = analyze(df_r, df_e)
+                st.success("Análise concluída!")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    else:
-        st.title(f"Aba {st.session_state.page}")
+    res = st.session_state.get("analysis")
+    if res:
+        with t2:
+            for comp, items in res["missing"].items():
+                with st.expander(f"⚠️ {comp} - {len(items)} faltantes"):
+                    st.markdown(table_html(items, ["uc", "apelido", "usina"], ["UC", "Apelido", "Usina"]), unsafe_allow_html=True)
+
+        with t3:
+            for comp, rows in res["inadimplentes"].items():
+                vencido = sum(r["valor"] for r in rows)
+                gerado = res["total_gerado"].get(comp, 1.0)
+                taxa = (vencido / gerado * 100)
+                st.markdown(f'<div class="sunne-card"><div class="sunne-card-title">{comp}</div>', unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="kpi-row">
+                    <div class="kpi-box"><div class="kpi-label">Gerado</div><div class="kpi-value">R$ {gerado:,.2f}</div></div>
+                    <div class="kpi-box"><div class="kpi-label">Vencido</div><div class="kpi-value danger">R$ {vencido:,.2f}</div></div>
+                    <div class="kpi-box"><div class="kpi-label">Taxa</div><div class="kpi-value danger">{taxa:.1f}%</div></div>
+                </div>
+                """, unsafe_allow_html=True)
+                with st.expander("Ver lista de clientes"):
+                    st.markdown(table_html(rows, ["uc", "titular", "valor"], ["UC", "Titular", "Valor"]), unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            st.write("---")
+            st.markdown("## 🚨 Inadimplência Crítica (>60 dias)")
+            if res["critical"]:
+                df_c = pd.DataFrame(res["critical"])
+                st.dataframe(df_c.style.apply(style_critical, axis=1), use_container_width=True, hide_index=True)
+            else:
+                st.success("Nenhuma inadimplência crítica detectada.")
 
 if __name__ == "__main__": main()
