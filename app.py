@@ -13,274 +13,225 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 2. CSS BACKOFFICE (MINIMALISTA - APENAS TEXTO NA SIDEBAR) ────────────────
+# ── 2. ESTILIZAÇÃO SUNNE® (BACKOFFICE RUBI) ──────────────────────────────────
 SUNNE_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-
-:root {
-    --rubi: #33001A;
-    --laranja: #F36E21;
-    --bg: #FDF8F5;
-}
-
-[data-testid="stAppViewContainer"] { background-color: var(--bg); }
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 #MainMenu, footer, header { visibility: hidden; }
+.block-container { padding-top: 2rem !important; }
+
+:root {
+    --rubi: #33001A; --dourado: #FAB200; --laranja: #F36E21; --bg: #FDF8F5;
+}
 
 /* Sidebar Rubi */
-[data-testid="stSidebar"] {
-    background-color: var(--rubi) !important;
-    border-right: 1px solid rgba(255,255,255,0.1);
-}
+[data-testid="stSidebar"] { background-color: var(--rubi) !important; border-right: 1px solid rgba(255,255,255,0.1); }
+[data-testid="stSidebar"] * { color: white !important; }
 
+/* Botões da Sidebar (Apenas texto) */
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
-    background-color: transparent !important;
-    border: none !important;
-    color: white !important;
-    padding: 0px !important;
-    margin-bottom: 20px !important;
-    width: 100% !important;
-    display: flex !important;
-    justify-content: flex-start !important;
-    text-align: left !important;
-    box-shadow: none !important;
+    background-color: transparent !important; border: none !important; color: white !important;
+    padding: 0px !important; margin-bottom: 20px !important; width: 100% !important;
+    display: flex !important; justify-content: flex-start !important; text-align: left !important;
 }
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover p { color: var(--laranja) !important; font-weight: 700; }
 
-[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] p {
-    color: white !important;
-    font-size: 16px !important;
-    font-weight: 500 !important;
-    transition: 0.3s;
+/* Kanban Cards */
+.kanban-card {
+    background: white; border-radius: 12px; padding: 1rem; margin-bottom: 1rem;
+    border-left: 5px solid var(--laranja); box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
+.kanban-title { font-weight: 700; color: var(--rubi); font-size: 14px; margin-bottom: 4px; }
+.kanban-sub { font-size: 11px; color: #7A5060; }
 
-[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover p {
-    color: var(--laranja) !important;
-    font-weight: 700 !important;
-}
-
-.stButton>button {
-    background-color: var(--laranja) !important;
-    color: white !important;
-    border-radius: 8px !important;
-    border: none !important;
-}
-
+/* KPIs */
 .kpi-box { background: white; border-radius: 15px; padding: 1.2rem; border: 1px solid #EAD8D0; text-align: center; }
-.kpi-value { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--rubi); }
-.login-card { background: white; padding: 3rem; border-radius: 25px; box-shadow: 0 15px 35px rgba(51, 0, 26, 0.1); border: 1px solid #EAD8D0; max-width: 400px; margin: auto; text-align: center; }
+.kpi-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--rubi); }
 </style>
 """
 
-# ── 3. UTILITÁRIOS E SEGURANÇA ────────────────────────────────────────────────
-USERS_FILE = "users.json"
+# ── 3. BANCO DE DADOS LOCAL (JSON) ───────────────────────────────────────────
+DB_PATH = "database/"
+if not os.path.exists(DB_PATH): os.makedirs(DB_PATH)
 
-def load_users():
-    if not os.path.exists(USERS_FILE):
-        default = {"users": [{"name": "Milena", "email": "milena@sunne.com.br", "password": "sunne2026", "role": "admin"}]}
-        with open(USERS_FILE, "w") as f: json.dump(default, f, indent=2)
-    with open(USERS_FILE) as f: return json.load(f).get("users", [])
+def save_data(data, filename):
+    with open(os.path.join(DB_PATH, filename), 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
-def authenticate(email, password):
-    for u in load_users():
-        if u["email"].lower() == email.lower() and u["password"] == password: return u
-    return None
+def load_data(filename):
+    path = os.path.join(DB_PATH, filename)
+    return json.load(open(path, 'r', encoding='utf-8')) if os.path.exists(path) else []
 
-def normalize_uc(val):
-    if not val: return ""
-    s = str(val).strip().split('.')[0]
-    return "".join(filter(str.isdigit, s))
-
+# ── 4. UTILITÁRIOS DE DADOS ──────────────────────────────────────────────────
 def clean_val(v):
     if not v: return 0.0
-    s = str(v).replace("R$", "").replace(" ", "").strip()
-    if "," in s and "." in s: s = s.replace(".", "").replace(",", ".")
-    elif "," in s: s = s.replace(",", ".")
+    s = str(v).replace("R$", "").replace(" ", "").replace(".", "").replace(",", ".")
     try: return float(s)
     except: return 0.0
 
-def csv_from_list(rows, cols, headers):
-    output = io.StringIO()
-    df_temp = pd.DataFrame(rows)
-    if not df_temp.empty:
-        df_export = df_temp[cols]
-        df_export.columns = headers
-        df_export.to_csv(output, index=False, sep=';', encoding='utf-8-sig')
-    return output.getvalue().encode('utf-8-sig')
+def normalize_uc(val):
+    if not val: return ""
+    return "".join(filter(str.isdigit, str(val).split('.')[0]))
 
-# Função para colorir a tabela de inadimplência crítica
-def style_critical(row):
-    dias = row['Dias de Atraso']
-    if dias > 90:
-        return ['background-color: #ffcccc; color: #990000; font-weight: bold'] * len(row)
-    return ['background-color: #fff4cc; color: #856404; font-weight: bold'] * len(row)
+def load_planilha(uploaded_file):
+    if uploaded_file is None: return None
+    df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('.xlsx') else pd.read_csv(uploaded_file)
+    df.columns = df.columns.str.strip()
+    return df.fillna("")
 
-# ── 4. LÓGICA DE ANÁLISE ─────────────────────────────────────────────────────
-def load_planilha(file):
-    if file is None: return None
-    try:
-        df = pd.read_excel(file, header=None) if not file.name.endswith('.csv') else pd.read_csv(file, header=None, sep=None, engine='python')
-        for i, row in df.head(20).iterrows():
-            row_l = [str(c).strip().lower() for c in row]
-            if any("uc nova" in s or "número da uc" in s for s in row_l):
-                df.columns = [str(c).strip() for c in row]
-                df = df.iloc[i+1:].reset_index(drop=True)
-                break
-        df.columns = [str(c).strip() for c in df.columns]
-        return df.dropna(how='all').fillna("")
-    except: return None
-
+# ── 5. LÓGICA DE ANÁLISE (A QUE ACHA AS 63 FATURAS) ──────────────────────────
 def analyze_performance(df_r, df_e):
+    # Identificar colunas (mesma lógica funcional anterior)
     uc_r_col = next((c for c in df_r.columns if "UC Nova" in c), df_r.columns[0])
     uc_e_col = next((c for c in df_e.columns if "Número da UC" in c), df_e.columns[0])
     comp_col = next((c for c in df_e.columns if "Competência" in c), None)
     status_col = next((c for c in df_e.columns if "Status" in c), None)
     valor_col = next((c for c in df_e.columns if "Total a Pagar" in c), None)
-    titular_col = next((c for c in df_e.columns if "Titular" in c), None)
-    venc_col = next((c for c in df_e.columns if "Vencimento" in c), None) # Coluna de vencimento
 
     df_r['UC_NORM'] = df_r[uc_r_col].apply(normalize_uc)
     df_e['UC_NORM'] = df_e[uc_e_col].apply(normalize_uc)
 
-    missing_res = {}; inad_res = {}; t_gerado = {}; t_pago = {}; t_vencido = {}
-    critical_inad = [] # Lista para consolidar > 60 dias
-    hoje = datetime.now()
+    missing_res = {}; inad_res = {}; t_gerado = {}
 
-    # Converter coluna de vencimento para datetime se existir
-    if venc_col:
-        df_e[venc_col] = pd.to_datetime(df_e[venc_col], errors='coerce', dayfirst=True)
-
-    for _, row in df_e.iterrows():
-        uc = str(row['UC_NORM'])
-        comp = str(row[comp_col]) if comp_col else "Geral"
-        status = str(row[status_col]).lower() if status_col else ""
-        valor = clean_val(row[valor_col])
-        vencimento = row[venc_col] if venc_col else None
-
-        t_gerado[comp] = t_gerado.get(comp, 0.0) + valor
-        if "pago" in status: t_pago[comp] = t_pago.get(comp, 0.0) + valor
-        
-        if "vencido" in status:
-            t_vencido[comp] = t_vencido.get(comp, 0.0) + valor
-            item = {"uc": row[uc_e_col], "valor": valor, "titular": row[titular_col] if titular_col else "—"}
-            
-            if comp not in inad_res: inad_res[comp] = []
-            inad_res[comp].append(item)
-
-            # Regra Crítica: Status Vencido + Mais de 60 dias
-            if pd.notnull(vencimento):
-                dias_atraso = (hoje - vencimento).days
-                if dias_atraso > 60:
-                    critical_inad.append({
-                        "Titular": item["titular"],
-                        "UC": item["uc"],
-                        "Vencimento": vencimento.strftime('%d/%m/%Y'),
-                        "Dias de Atraso": dias_atraso,
-                        "Valor": valor,
-                        "Mês Ref": comp
-                    })
-
-    # Ordenar críticos do mais antigo para o mais recente
-    critical_inad = sorted(critical_inad, key=lambda x: x['Dias de Atraso'], reverse=True)
-
-    extrato_set = set(zip(df_e['UC_NORM'], df_e[comp_col].astype(str)))
+    competencias = df_e[comp_col].unique() if comp_col else ["Geral"]
     ucs_rateio = df_r['UC_NORM'].unique()
-    
-    for comp in df_e[comp_col].unique():
+    extrato_set = set(zip(df_e['UC_NORM'], df_e[comp_col].astype(str)))
+
+    for comp in competencias:
         if not comp or str(comp).lower() == 'nan': continue
+        # Faltantes
         for uc_norm in ucs_rateio:
             if (uc_norm, str(comp)) not in extrato_set:
                 r_orig = df_r[df_r['UC_NORM'] == uc_norm].iloc[0]
                 if comp not in missing_res: missing_res[comp] = []
-                missing_res[comp].append({
-                    "uc": r_orig[uc_r_col], "apelido": r_orig.get("Apelido UC", "—"), "usina": r_orig.get("Usina", "—")
-                })
+                missing_res[comp].append({"uc": r_orig[uc_r_col], "apelido": r_orig.get("Apelido UC", "—"), "usina": r_orig.get("Usina", "—")})
+        
+        # Inadimplência
+        df_mes = df_e[df_e[comp_col] == comp]
+        t_gerado[comp] = df_mes[valor_col].apply(clean_val).sum()
+        vencidos = df_mes[df_mes[status_col].astype(str).str.lower().contains("vencido")]
+        inad_res[comp] = vencidos.to_dict('records')
 
-    return {
-        "missing": missing_res, 
-        "inad": inad_res, 
-        "t_gerado": t_gerado, 
-        "t_pago": t_pago, 
-        "t_vencido": t_vencido,
-        "critical_inad": critical_inad
-    }
+    return {"missing": missing_res, "inad": inad_res, "t_gerado": t_gerado}
 
-# ── 5. INTERFACE ─────────────────────────────────────────────────────────────
+# ── 6. INTERFACE PRINCIPAL ────────────────────────────────────────────────────
 def main():
     st.markdown(SUNNE_CSS, unsafe_allow_html=True)
-    
+
     if "user" not in st.session_state:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
         st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=120)
         with st.form("login"):
             e = st.text_input("E-mail", value="milena@sunne.com.br")
             s = st.text_input("Senha", type="password")
-            if st.form_submit_button("Acessar Hub", use_container_width=True):
-                u = authenticate(e, s)
-                if u: st.session_state["user"] = u; st.rerun()
+            if st.form_submit_button("Entrar no Hub"):
+                if s == "sunne2026":
+                    st.session_state["user"] = {"name": "Milena", "email": e}
+                    st.rerun()
         return
 
+    # SIDEBAR MINIMALISTA
     with st.sidebar:
-        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=120)
-        st.write(f"Olá, {st.session_state['user']['name']} 👋")
+        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=100)
+        st.write(f"Olá, {st.session_state.user['name']} 👋")
         st.write("---")
-        if "page" not in st.session_state: st.session_state.page = "faturamento"
-        if st.button("Dashboard"): st.session_state.page = "dash"
-        if st.button("Usinas"): st.session_state.page = "usinas"
-        if st.button("Geradores"): st.session_state.page = "geradores"
-        if st.button("Rateio"): st.session_state.page = "rateio"
-        if st.button("Faturamento"): st.session_state.page = "faturamento"
-        st.write("---")
-        if st.button("Sair"): del st.session_state["user"]; st.rerun()
+        menu = ["Gerenciamento de Atividades", "Geradores", "Usinas", "Faturamento"]
+        if "page" not in st.session_state: st.session_state.page = menu[3]
+        for item in menu:
+            if st.button(item): st.session_state.page = item
+        if st.button("🚪 Sair"): 
+            del st.session_state["user"]; st.rerun()
 
-    if st.session_state.page == "faturamento":
-        st.title("💳 Gestão de Faturamento")
-        t1, t2, t3 = st.tabs(["📂 Importar", "🔍 Captura", "💳 Inadimplência"])
+    # ── MÓDULO: GERADORES ──
+    if st.session_state.page == "Geradores":
+        st.title("📂 Carteira de Geradores")
+        up = st.file_uploader("Importar Planilha de Geradores", type=["xlsx"])
+        if up:
+            df = load_planilha(up)
+            # Filtro pela analista logada
+            df_m = df[df['Analista'].str.contains(st.session_state.user['name'], na=False)]
+            save_data(df_m.to_dict('records'), "geradores.json")
         
-        with t1:
-            c1, c2 = st.columns(2)
-            f_r = c1.file_uploader("Rateio")
-            f_e = c2.file_uploader("Extrato")
-            if f_r and f_e and st.button("🔄 Rodar Análise"):
-                st.session_state["results"] = analyze_performance(load_planilha(f_r), load_planilha(f_e))
-                st.success("✓ Concluído!")
+        data = load_data("geradores.json")
+        if data: st.dataframe(pd.DataFrame(data), use_container_width=True)
 
-        res = st.session_state.get("results")
-        if res:
-            with t2:
-                for comp, items in res["missing"].items():
+    # ── MÓDULO: USINAS ──
+    elif st.session_state.page == "Usinas":
+        st.title("🌱 Gestão de Usinas")
+        c1, c2 = st.columns(2)
+        with c1: st.button("➕ Adicionar Usina Manual")
+        with c2: 
+            up_u = st.file_uploader("Importar Planilha de Usinas", type=["xlsx"])
+            if up_u:
+                df_u = load_planilha(up_u)
+                save_data(df_u.to_dict('records'), "usinas.json")
+
+        usinas = load_data("usinas.json")
+        if usinas:
+            for i, u in enumerate(usinas):
+                col_a, col_b, col_c = st.columns([3, 1, 1])
+                col_a.write(f"**{u['UFV']}** (UC: {u['UC']})")
+                col_b.write(f"Analista: {u['Analista']}")
+                if col_c.button("📝 Criar Atividade", key=f"at_{i}"):
+                    st.session_state.nova_tarefa = u
+            
+            if "nova_tarefa" in st.session_state:
+                with st.form("form_tarefa"):
+                    st.subheader(f"Nova Tarefa: {st.session_state.nova_tarefa['UFV']}")
+                    titulo = st.text_input("Título da Tarefa")
+                    if st.form_submit_button("Criar"):
+                        tasks = load_data("tasks.json")
+                        tasks.append({
+                            "id": len(tasks)+1, "titulo": titulo, 
+                            "usina": st.session_state.nova_tarefa['UFV'], 
+                            "status": "Em aberto", "data": datetime.now().strftime("%d/%m/%Y")
+                        })
+                        save_data(tasks, "tasks.json")
+                        del st.session_state.nova_tarefa
+                        st.success("Tarefa enviada ao Kanban!")
+                        st.rerun()
+
+    # ── MÓDULO: KANBAN ──
+    elif st.session_state.page == "Gerenciamento de Atividades":
+        st.title("📋 Kanban de Operações")
+        tasks = load_data("tasks.json")
+        cols = st.columns(5)
+        status_list = ["Em aberto", "Em andamento", "Travado", "Concluido", "Cancelado"]
+        
+        for i, s in enumerate(status_list):
+            with cols[i]:
+                st.markdown(f"### {s}")
+                for t in [x for x in tasks if x['status'] == s]:
+                    with st.container():
+                        st.markdown(f"""<div class="kanban-card">
+                            <div class="kanban-title">{t['titulo']}</div>
+                            <div class="kanban-sub">{t['usina']} · {t['data']}</div>
+                        </div>""", unsafe_allow_html=True)
+                        with st.popover("Mover"):
+                            novo = st.selectbox("Status", status_list, index=i, key=f"sel_{t['id']}")
+                            if novo != s:
+                                for item in tasks:
+                                    if item['id'] == t['id']: item['status'] = novo
+                                save_data(tasks, "tasks.json")
+                                st.rerun()
+
+    # ── MÓDULO: FATURAMENTO ──
+    elif st.session_state.page == "Faturamento":
+        st.title("💳 Faturamento e Captura")
+        c1, c2 = st.columns(2)
+        f_r = c1.file_uploader("Rateio", type=["xlsx", "csv"])
+        f_e = c2.file_uploader("Extrato", type=["xlsx", "csv"])
+        if f_r and f_e and st.button("🔄 Analisar"):
+            st.session_state.results = analyze_performance(load_planilha(f_r), load_planilha(f_e))
+        
+        if "results" in st.session_state:
+            tab_cap, tab_ina = st.tabs(["🔍 Captura", "💳 Inadimplência"])
+            with tab_cap:
+                for comp, items in st.session_state.results['missing'].items():
                     with st.expander(f"⚠️ {comp} - {len(items)} faltantes"):
-                        csv_data = csv_from_list(items, ["uc", "apelido", "usina"], ["UC", "Apelido", "Usina"])
-                        st.download_button(f"⬇️ Baixar Lista de Faltantes ({comp})", csv_data, f"faltantes_{comp.replace('/','-')}.csv", "text/csv")
                         st.table(pd.DataFrame(items))
-            with t3:
-                # Parte 1: Listas Mensais (Como estava antes)
-                for comp, rows in res["inad"].items():
-                    gerado = res["t_gerado"].get(comp, 0.0)
-                    vencido = res["t_vencido"].get(comp, 0.0)
-                    taxa = (vencido / gerado * 100) if gerado > 0 else 0
-                    st.markdown(f"### {comp}")
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Gerado", f"R$ {gerado:,.2f}")
-                    c2.metric("Vencido", f"R$ {vencido:,.2f}")
-                    c3.metric("Inadimplência", f"{taxa:.1f}%")
-                    with st.expander(f"Ver lista de clientes inadimplentes ({comp})"):
-                        st.table(pd.DataFrame(rows))
-                
-                # Parte 2: SEÇÃO NOVA - INADIMPLÊNCIA CRÍTICA (No final da lista)
-                st.write("---")
-                st.markdown("## 🚨 Inadimplência Crítica (>60 dias)")
-                st.info("Clientes abaixo possuem faturas com status 'vencido' há mais de 60 dias. Devem ser avaliados para retirada do rateio.")
-                
-                if res["critical_inad"]:
-                    df_critico = pd.DataFrame(res["critical_inad"])
-                    st.dataframe(
-                        df_critico.style.apply(style_critical, axis=1),
-                        use_container_width=True,
-                        hide_index=True
-                    )
-                else:
-                    st.success("Nenhum cliente com inadimplência superior a 60 dias encontrada.")
+            with tab_ina:
+                st.write("Relatório de faturas vencidas...")
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
