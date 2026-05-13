@@ -5,714 +5,279 @@ import os
 from datetime import datetime, timedelta
 import io
 
-# ── Configuração da página ────────────────────────────────────────────────────
+# ── 1. CONFIGURAÇÃO DA PÁGINA ────────────────────────────────────────────────
 st.set_page_config(
     page_title="Sunne Performance",
     page_icon="☀️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
-# ── Paleta Sunne® e CSS global ────────────────────────────────────────────────
+# ── 2. CSS CUSTOMIZADO (DESIGN CLAUDE + SIDEBAR MINIMALISTA) ────────────────
 SUNNE_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
 /* Reset e base */
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
-
-/* Esconde elementos padrão do Streamlit */
 #MainMenu, footer, header { visibility: hidden; }
-.block-container { padding-top: 0 !important; max-width: 1100px; }
+.block-container { padding-top: 0 !important; }
 
-/* Variáveis de cor Sunne® */
 :root {
-    --rubi:     #33001A;
-    --dourado:  #FAB200;
-    --magenta:  #FF365E;
-    --laranja:  #FF6B1A;
-    --turquesa: #69E0CF;
-    --bege:     #F2C7A3;
-    --bg:       #FDF8F5;
-    --card-bg:  #FFFFFF;
-    --muted:    #7A5060;
-    --border:   #EAD8D0;
+    --rubi: #33001A; --dourado: #FAB200; --magenta: #FF365E;
+    --laranja: #F36E21; --bg: #FDF8F5; --card-bg: #FFFFFF; --border: #EAD8D0;
 }
 
-/* Header fixo */
+/* Sidebar Minimalista Rubi */
+[data-testid="stSidebar"] {
+    background-color: var(--rubi) !important;
+    border-right: 1px solid rgba(255,255,255,0.1);
+}
+[data-testid="stSidebar"] * { color: white !important; }
+
+/* Botões da Sidebar como Texto */
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0px !important;
+    margin-bottom: 20px !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+}
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] p {
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    transition: 0.3s;
+}
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover p {
+    color: var(--laranja) !important;
+    font-weight: 700 !important;
+}
+
+/* Header Estilo Claude */
 .sunne-header {
-    background: #33001A;
-    padding: 1rem 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: -1rem -1rem 1.5rem -1rem;
-    border-radius: 0;
+    background: var(--rubi); padding: 1rem 2rem; display: flex;
+    align-items: center; justify-content: space-between;
+    margin: 0rem -1rem 1.5rem -1rem;
 }
 .sunne-logo-mark {
-    width: 40px; height: 40px;
-    background: #FAB200;
-    border-radius: 10px;
+    width: 40px; height: 40px; background: var(--dourado); border-radius: 10px;
     display: inline-flex; align-items: center; justify-content: center;
-    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px;
-    color: #33001A; margin-right: 12px; vertical-align: middle;
+    font-family: 'Syne', sans-serif; font-weight: 700; color: var(--rubi); margin-right: 12px;
 }
-.sunne-header-title {
-    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px;
-    color: #FFFFFF; display: inline; vertical-align: middle;
-}
-.sunne-header-sub {
-    font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 2px;
-}
-.user-pill {
-    background: rgba(255,255,255,0.12); border-radius: 8px;
-    padding: 4px 12px; font-size: 12px; color: #FFFFFF; display: inline-block;
-}
+.sunne-header-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: #FFFFFF; }
 
-/* Cards */
+/* Cards e KPIs Claude Style */
 .sunne-card {
-    background: #FFFFFF;
-    border: 1px solid #EAD8D0;
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
+    background: #FFFFFF; border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;
 }
-.sunne-card-title {
-    font-family: 'Syne', sans-serif; font-weight: 700;
-    font-size: 15px; color: #33001A; margin-bottom: 1rem;
-}
-
-/* KPI cards */
 .kpi-row { display: flex; gap: 12px; margin-top: 1rem; flex-wrap: wrap; }
 .kpi-box {
-    background: #FBF5F0; border-radius: 10px;
-    padding: .85rem 1.1rem; flex: 1; min-width: 150px;
+    background: #FBF5F0; border-radius: 10px; padding: .85rem 1.1rem; flex: 1; min-width: 150px;
 }
-.kpi-label { font-size: 11px; color: #7A5060; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .05em; }
-.kpi-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: #33001A; }
-.kpi-value.danger { color: #FF365E; }
-.kpi-value.ok     { color: #0A8A7A; }
+.kpi-label { font-size: 11px; color: #7A5060; text-transform: uppercase; font-weight: 600; }
+.kpi-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--rubi); }
+.kpi-value.danger { color: var(--magenta); }
 
-/* Badges */
-.badge {
-    display: inline-block; padding: 3px 10px; border-radius: 6px;
-    font-size: 11px; font-weight: 600;
-}
-.badge-warn   { background: #FFF0F3; color: #CC1A3A; }
-.badge-ok     { background: #F0FDFB; color: #0A7A6A; }
-.badge-info   { background: #FFF8E6; color: #7A5010; }
-.badge-orange { background: #FFF3EC; color: #C04010; }
-
-/* Alert bar */
-.alert-bar {
-    background: #FFF0F3; border: 1px solid #FFCDD5;
-    border-radius: 10px; padding: .75rem 1rem;
-    font-size: 13px; color: #8B1530; margin-bottom: 1rem;
-}
-
-/* Upload boxes */
-.upload-hint {
-    background: #FBF5F0; border: 2px dashed #D4B5A8;
-    border-radius: 12px; padding: 1.5rem; text-align: center;
-    font-size: 13px; color: #7A5060;
-}
-
-/* Tabelas */
+/* Tabelas Claude Style */
 .sunne-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.sunne-table th {
-    text-align: left; padding: .55rem .75rem;
-    background: #FBF5F0; color: #7A5060;
-    font-size: 11px; font-weight: 500;
-    text-transform: uppercase; letter-spacing: .04em;
-    border-bottom: 1px solid #EAD8D0;
-}
-.sunne-table td {
-    padding: .55rem .75rem;
-    border-bottom: .5px solid #F0E4DC;
-    color: #1A0A0F;
-}
-.sunne-table tr:last-child td { border-bottom: none; }
-.sunne-table tr:hover td { background: #FBF8F5; }
-.uc-mono { font-family: monospace; font-size: 12.5px; }
+.sunne-table th { text-align: left; padding: .6rem; background: #FBF5F0; color: #7A5060; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; }
+.sunne-table td { padding: .6rem; border-bottom: .5px solid #F0E4DC; color: #1A0A0F; }
 
-/* Streamlit overrides */
-.stButton > button {
-    background: #FAB200 !important; color: #33001A !important;
-    border: none !important; border-radius: 10px !important;
-    font-family: 'Syne', sans-serif !important; font-weight: 700 !important;
-    font-size: 14px !important; padding: .7rem 1.8rem !important;
-    cursor: pointer !important;
+/* Login Claude Style */
+.login-card {
+    max-width: 400px; margin: 10vh auto; padding: 3rem; background: white;
+    border-radius: 20px; border: 1px solid var(--border); text-align: center;
 }
-.stButton > button:hover { opacity: .88 !important; }
-
-.stDownloadButton > button {
-    background: transparent !important; color: #33001A !important;
-    border: 1.5px solid #33001A !important; border-radius: 8px !important;
-    font-size: 12px !important; font-weight: 600 !important;
-    padding: .4rem .9rem !important;
-}
-.stDownloadButton > button:hover {
-    background: #33001A !important; color: #FFFFFF !important;
-}
-
-/* Abas Streamlit */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 6px; border-bottom: 1.5px solid #EAD8D0;
-}
-.stTabs [data-baseweb="tab"] {
-    font-family: 'Syne', sans-serif !important; font-size: 13px !important;
-    font-weight: 600 !important; color: #7A5060 !important;
-    border-bottom: 2.5px solid transparent !important;
-    background: transparent !important; border-radius: 0 !important;
-}
-.stTabs [aria-selected="true"] {
-    color: #33001A !important;
-    border-bottom-color: #FAB200 !important;
-}
-
-/* Login */
-.login-wrap {
-    max-width: 420px; margin: 6vh auto; padding: 3rem 2.5rem;
-    background: #FFFFFF; border-radius: 20px;
-    border: 1px solid #EAD8D0; text-align: center;
-}
-.login-mark {
-    width: 60px; height: 60px; background: #33001A;
-    border-radius: 14px; display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 1.2rem;
-    font-family: 'Syne', sans-serif; font-weight: 700;
-    font-size: 26px; color: #FAB200;
-}
-.login-title {
-    font-family: 'Syne', sans-serif; font-weight: 700;
-    font-size: 22px; color: #33001A; margin-bottom: .3rem;
-}
-.login-sub { font-size: 13px; color: #7A5060; margin-bottom: 1.5rem; }
-
-div[data-testid="stForm"] { border: none !important; padding: 0 !important; }
 </style>
 """
 
-# ── Constantes ────────────────────────────────────────────────────────────────
+# ── 3. UTILITÁRIOS E SEGURANÇA ────────────────────────────────────────────────
 USERS_FILE = "users.json"
 TODAY = datetime.now()
-DELAY_DAYS = 40  # 1 mês (30d) + 10 dias de captura
+DELAY_DAYS = 40 
 
-
-# ── Utilitários de usuário ────────────────────────────────────────────────────
-def load_users() -> list:
+def load_users():
     if not os.path.exists(USERS_FILE):
-        default = {"users": [{"name": "Admin", "email": "admin@sunne.com.br", "password": "admin123", "role": "admin"}]}
-        with open(USERS_FILE, "w") as f:
-            json.dump(default, f, indent=2)
-    with open(USERS_FILE) as f:
-        return json.load(f).get("users", [])
+        default = {"users": [{"name": "Milena", "email": "milena@sunne.com.br", "password": "sunne2026", "role": "admin"}]}
+        with open(USERS_FILE, "w") as f: json.dump(default, f, indent=2)
+    with open(USERS_FILE) as f: return json.load(f).get("users", [])
 
-
-def save_users(users: list):
-    with open(USERS_FILE, "w") as f:
-        json.dump({"users": users}, f, indent=2, ensure_ascii=False)
-
-
-def authenticate(email: str, password: str):
+def authenticate(email, password):
     for u in load_users():
-        if u["email"].lower() == email.lower() and u["password"] == password:
-            return u
+        if u["email"].lower() == email.lower() and u["password"] == password: return u
     return None
 
+def normalize_uc(val):
+    if not val: return ""
+    return "".join(filter(str.isdigit, str(val).split('.')[0]))
 
-# ── Utilitários de dados ──────────────────────────────────────────────────────
-def normalize_col(df: pd.DataFrame, patterns: list) -> str | None:
-    for p in patterns:
-        for c in df.columns:
-            if pd.Series([c]).str.contains(p, case=False, regex=True).any():
-                return c
-    return None
+def clean_val(v):
+    if not v: return 0.0
+    s = str(v).replace("R$", "").replace(" ", "").replace(".", "").replace(",", ".")
+    try: return float(s)
+    except: return 0.0
 
+def style_critical(row):
+    dias = row['Dias de Atraso']
+    if dias > 90: return ['background-color: #ffcccc; color: #990000; font-weight: bold'] * len(row)
+    return ['background-color: #fff4cc; color: #856404; font-weight: bold'] * len(row)
 
-def load_planilha(uploaded_file) -> pd.DataFrame | None:
-    if uploaded_file is None:
-        return None
+# ── 4. LÓGICA DE ANÁLISE ROBUSTA ─────────────────────────────────────────────
+def load_planilha(file):
+    if file is None: return None
     try:
-        name = uploaded_file.name.lower()
-        if name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file, dtype=str)
-        else:
-            df = pd.read_excel(uploaded_file, dtype=str)
-        df.columns = df.columns.str.strip()
-        df = df.fillna("")
-        return df
-    except Exception as e:
-        st.error(f"Erro ao ler arquivo: {e}")
-        return None
+        df = pd.read_excel(file, header=None) if not file.name.endswith('.csv') else pd.read_csv(file, header=None, sep=None, engine='python')
+        for i, row in df.head(20).iterrows():
+            row_l = [str(c).strip().lower() for c in row]
+            if any("uc nova" in s or "número da uc" in s for s in row_l):
+                df.columns = [str(c).strip() for c in row]
+                df = df.iloc[i+1:].reset_index(drop=True)
+                break
+        df.columns = [str(c).strip() for c in df.columns]
+        return df.dropna(how='all').fillna("")
+    except: return None
 
+def analyze_performance(df_r, df_e):
+    # Identificação de Colunas
+    uc_r_col = next((c for c in df_r.columns if "UC Nova" in c), df_r.columns[0])
+    uc_e_col = next((c for c in df_e.columns if "Número da UC" in c), df_e.columns[0])
+    comp_col = next((c for c in df_e.columns if "Competência" in c), None)
+    status_col = next((c for c in df_e.columns if "Status" in c), None)
+    valor_col = next((c for c in df_e.columns if "Total a Pagar" in c), None)
+    venc_col = next((c for c in df_e.columns if "Vencimento" in c), None)
+    titular_col = next((c for c in df_e.columns if "Titular" in c), None)
 
-def parse_date(v: str) -> datetime | None:
-    if not v or v.strip() == "":
-        return None
-    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y"):
-        try:
-            return datetime.strptime(v.strip(), fmt)
-        except ValueError:
-            continue
-    return None
+    df_r['UC_NORM'] = df_r[uc_r_col].apply(normalize_uc)
+    df_e['UC_NORM'] = df_e[uc_e_col].apply(normalize_uc)
 
+    # Processamento de Datas
+    if venc_col:
+        df_e[venc_col] = pd.to_datetime(df_e[venc_col], errors='coerce', dayfirst=True)
 
-def get_uc_col(df: pd.DataFrame) -> str | None:
-    return normalize_col(df, [
-        r"uc\s*(nova|atual)", r"número\s*da\s*uc", r"numero\s*da\s*uc",
-        r"num.*uc", r"^uc$", r"^uc\b"
-    ])
+    missing_res = {}; inad_res = {}; t_gerado = {}; t_pago = {}; t_vencido = {}
+    critical_inad = []
 
+    for _, row in df_e.iterrows():
+        uc = str(row['UC_NORM'])
+        comp = str(row[comp_col]) if comp_col else "Geral"
+        status = str(row[status_col]).lower() if status_col else ""
+        valor = clean_val(row[valor_col])
+        vencimento = row[venc_col] if venc_col else None
 
-# ── Lógica de análise ─────────────────────────────────────────────────────────
-def analyze(df_rateio: pd.DataFrame, df_extrato: pd.DataFrame) -> dict:
-    # ---- Identificar colunas ------------------------------------------------
-    uc_r_col = get_uc_col(df_rateio)
-    usina_r_col = normalize_col(df_rateio, [r"usina"])
-    apelido_col = normalize_col(df_rateio, [r"apelido"])
+        t_gerado[comp] = t_gerado.get(comp, 0.0) + valor
+        if "pago" in status: t_pago[comp] = t_pago.get(comp, 0.0) + valor
+        
+        if "vencido" in status:
+            t_vencido[comp] = t_vencido.get(comp, 0.0) + valor
+            item = {"uc": row[uc_e_col], "valor": valor, "titular": row[titular_col] if titular_col else "—", "status": "Vencido"}
+            if comp not in inad_res: inad_res[comp] = []
+            inad_res[comp].append(item)
 
-    uc_e_col = get_uc_col(df_extrato)
-    titular_col = normalize_col(df_extrato, [r"titular"])
-    comp_ext_col = normalize_col(df_extrato, [r"competência\s*[-–]\s*extenso", r"competencia\s*[-–]\s*extenso"])
-    comp_col = normalize_col(df_extrato, [r"^competência$", r"^competencia$", r"competência\s*$"])
-    leitura_col = normalize_col(df_extrato, [r"leitura\s*atual"])
-    valor_col = normalize_col(df_extrato, [r"total\s*a\s*pagar", r"total\s*pagar"])
-    status_col = normalize_col(df_extrato, [r"status\s*de\s*pagamento", r"^status$"])
-    usina_e_col = normalize_col(df_extrato, [r"usina"])
-    pago_col = normalize_col(df_extrato, [r"total\s*pago"])
+            if pd.notnull(vencimento):
+                atraso = (TODAY - vencimento).days
+                if atraso > 60:
+                    critical_inad.append({"Titular": item["titular"], "UC": item["uc"], "Vencimento": vencimento.strftime('%d/%m/%Y'), "Dias de Atraso": atraso, "Valor": valor, "Mês Ref": comp})
 
-    errors = []
-    if not uc_r_col: errors.append("Coluna UC não encontrada na Planilha de Rateio.")
-    if not uc_e_col: errors.append("Coluna UC não encontrada no Extrato.")
-    if errors:
-        return {"errors": errors}
+    # Cruzamento para faturas faltantes
+    extrato_set = set(zip(df_e['UC_NORM'], df_e[comp_col].astype(str)))
+    ucs_rateio = df_r['UC_NORM'].unique()
+    for comp_ext in df_e[comp_col].unique():
+        if not comp_ext or str(comp_ext).lower() == 'nan': continue
+        for uc_norm in ucs_rateio:
+            if (uc_norm, str(comp_ext)) not in extrato_set:
+                r_orig = df_r[df_r['UC_NORM'] == uc_norm].iloc[0]
+                if comp_ext not in missing_res: missing_res[comp_ext] = []
+                missing_res[comp_ext].append({"uc": r_orig[uc_r_col], "apelido": r_orig.get("Apelido UC", "—"), "usina": r_orig.get("Usina", "—")})
 
-    # Normalizar UCs
-    df_rateio = df_rateio.copy()
-    df_extrato = df_extrato.copy()
-    df_rateio[uc_r_col] = df_rateio[uc_r_col].str.strip().str.replace(r"\.0$", "", regex=True)
-    df_extrato[uc_e_col] = df_extrato[uc_e_col].str.strip().str.replace(r"\.0$", "", regex=True)
+    return {"missing": missing_res, "inad": inad_res, "t_gerado": t_gerado, "t_pago": t_pago, "t_vencido": t_vencido, "critical": critical_inad}
 
-    ucs_rateio = df_rateio[uc_r_col].unique().tolist()
+# ── 5. INTERFACE (DASHBOARD CLAUDE + LÓGICA CORRIGIDA) ──────────────────────
+def main():
+    st.markdown(SUNNE_CSS, unsafe_allow_html=True)
+    
+    if "user" not in st.session_state:
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=120)
+        st.markdown('<div class="kpi-value">Acesso Restrito</div>', unsafe_allow_html=True)
+        with st.form("login"):
+            e = st.text_input("E-mail", value="milena@sunne.com.br")
+            s = st.text_input("Senha", type="password")
+            if st.form_submit_button("Entrar no Hub", use_container_width=True):
+                u = authenticate(e, s)
+                if u: st.session_state["user"] = u; st.rerun()
+        return
 
-    # Usar competência extenso ou numérica como chave de mês
-    comp_key = comp_ext_col or comp_col
-
-    # Construir set de (uc, competencia) no extrato
-    extrato_pairs = set()
-    if comp_key:
-        for _, row in df_extrato.iterrows():
-            extrato_pairs.add((row[uc_e_col], row[comp_key]))
-
-    # Obter leitura mais recente por competência
-    comp_leitura = {}
-    if comp_key and leitura_col:
-        for _, row in df_extrato.iterrows():
-            c = row[comp_key]
-            l = parse_date(row[leitura_col])
-            if l and c not in comp_leitura:
-                comp_leitura[c] = l
-
-    # ---- Faturas faltantes --------------------------------------------------
-    missing: dict[str, list] = {}
-    if comp_key:
-        competencias = df_extrato[comp_key].unique().tolist()
-        for comp in competencias:
-            if not comp:
-                continue
-            leitura = comp_leitura.get(comp)
-            if leitura:
-                limite = leitura + timedelta(days=DELAY_DAYS)
-                if TODAY <= limite:
-                    continue  # ainda dentro do prazo
-
-            for uc in ucs_rateio:
-                if (uc, comp) not in extrato_pairs:
-                    # buscar info da UC no rateio
-                    row_r = df_rateio[df_rateio[uc_r_col] == uc]
-                    usina = row_r.iloc[0][usina_r_col] if usina_r_col and not row_r.empty else "—"
-                    apelido = row_r.iloc[0][apelido_col] if apelido_col and not row_r.empty else "—"
-
-                    if comp not in missing:
-                        missing[comp] = []
-                    missing[comp].append({
-                        "uc": uc,
-                        "usina": usina,
-                        "apelido": apelido,
-                        "titular": "—",
-                        "comp": comp,
-                        "leitura": leitura,
-                        "limite": leitura + timedelta(days=DELAY_DAYS) if leitura else None,
-                    })
-
-    # ---- Inadimplência ──────────────────────────────────────────────────────
-    inadimplentes: dict[str, list] = {}
-    total_por_comp: dict[str, float] = {}
-
-    if status_col and comp_key:
-        for _, row in df_extrato.iterrows():
-            comp = row[comp_key]
-            valor_str = row[valor_col] if valor_col else "0"
-            try:
-                valor = float(str(valor_str).replace("R$", "").replace(".", "").replace(",", ".").strip())
-            except:
-                valor = 0.0
-
-            total_por_comp[comp] = total_por_comp.get(comp, 0.0) + valor
-
-            status = row[status_col]
-            is_pago = bool(pd.Series([status]).str.contains(r"^pago$", case=False, regex=True).any())
-            if is_pago:
-                continue
-
-            uc = row[uc_e_col]
-            titular = row[titular_col] if titular_col else "—"
-            usina = row[usina_e_col] if usina_e_col else "—"
-            pago = row[pago_col] if pago_col else "0"
-
-            if comp not in inadimplentes:
-                inadimplentes[comp] = []
-            inadimplentes[comp].append({
-                "uc": uc,
-                "titular": titular,
-                "usina": usina,
-                "valor": valor,
-                "status": status,
-                "pago": pago,
-            })
-
-    return {
-        "errors": [],
-        "missing": missing,
-        "inadimplentes": inadimplentes,
-        "total_por_comp": total_por_comp,
-        "n_ucs_rateio": len(ucs_rateio),
-        "n_extrato": len(df_extrato),
-    }
-
-
-# ── Componentes HTML ──────────────────────────────────────────────────────────
-def render_header(user: dict):
+    # Header Claude Style
     st.markdown(f"""
     <div class="sunne-header">
         <div>
             <span class="sunne-logo-mark">S</span>
             <span class="sunne-header-title">Sunne Performance</span>
-            <div class="sunne-header-sub" style="margin-left:52px">Gestão de Captura &amp; Inadimplência</div>
         </div>
-        <div>
-            <span class="user-pill">{user['name']} · {user['email'].split('@')[0]}@sunne</span>
-        </div>
+        <div class="user-pill">{st.session_state["user"]["name"]} 👋</div>
     </div>
     """, unsafe_allow_html=True)
 
-
-def table_html(rows: list, cols: list, headers: list) -> str:
-    html = '<table class="sunne-table"><thead><tr>'
-    for h in headers:
-        html += f"<th>{h}</th>"
-    html += "</tr></thead><tbody>"
-    for row in rows:
-        html += "<tr>"
-        for i, c in enumerate(cols):
-            val = row.get(c, "—") or "—"
-            style = ' class="uc-mono"' if c == "uc" else ""
-            if c == "valor":
-                val = f"R$ {float(val or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            html += f"<td{style}>{val}</td>"
-        html += "</tr>"
-    html += "</tbody></table>"
-    return html
-
-
-def csv_from_list(rows: list, cols: list, headers: list) -> bytes:
-    lines = [";".join(headers)]
-    for r in rows:
-        lines.append(";".join([str(r.get(c, "")) for c in cols]))
-    return ("\n".join(lines)).encode("utf-8-sig")
-
-
-# ── Tela de Login ─────────────────────────────────────────────────────────────
-def page_login():
-    st.markdown(SUNNE_CSS, unsafe_allow_html=True)
-    st.markdown("""
-    <div style="min-height:10vh"></div>
-    <div class="login-wrap">
-        <div class="login-mark">S</div>
-        <div class="login-title">Sunne Performance</div>
-        <div class="login-sub">Sistema de Gestão de Faturas e Inadimplência</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1, 1.6, 1])
-    with col2:
-        with st.form("login_form"):
-            email = st.text_input("E-mail", placeholder="analista@sunne.com.br")
-            senha = st.text_input("Senha", type="password", placeholder="••••••••")
-            submitted = st.form_submit_button("Entrar", use_container_width=True)
-
-        if submitted:
-            user = authenticate(email, senha)
-            if user:
-                st.session_state["user"] = user
-                st.rerun()
-            else:
-                st.error("E-mail ou senha incorretos.")
-
-
-# ── Aba: Upload ───────────────────────────────────────────────────────────────
-def tab_upload():
-    st.markdown('<div class="sunne-card"><div class="sunne-card-title">📂 Importar Planilhas</div>', unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown('<div class="upload-hint"><strong>Planilha de Rateio</strong><br/>UC Nova/Atual · Usina · Apelido UC · CNPJ</div>', unsafe_allow_html=True)
-        f_rateio = st.file_uploader("Rateio", type=["xlsx", "xls", "csv"], label_visibility="collapsed", key="up_rateio")
-    with col2:
-        st.markdown('<div class="upload-hint"><strong>Extrato Detalhado</strong><br/>Nº UC · Titular · Competência · Leitura Atual · Status</div>', unsafe_allow_html=True)
-        f_extrato = st.file_uploader("Extrato", type=["xlsx", "xls", "csv"], label_visibility="collapsed", key="up_extrato")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    if f_rateio:
-        st.session_state["df_rateio"] = load_planilha(f_rateio)
-        st.success(f"✓ Rateio carregado — {len(st.session_state['df_rateio'])} linhas")
-    if f_extrato:
-        st.session_state["df_extrato"] = load_planilha(f_extrato)
-        st.success(f"✓ Extrato carregado — {len(st.session_state['df_extrato'])} linhas")
-
-    has_both = st.session_state.get("df_rateio") is not None and st.session_state.get("df_extrato") is not None
-
-    if has_both:
-        if st.button("Analisar Planilhas"):
-            with st.spinner("Cruzando dados..."):
-                result = analyze(st.session_state["df_rateio"], st.session_state["df_extrato"])
-                st.session_state["analysis"] = result
-            if result.get("errors"):
-                for e in result["errors"]:
-                    st.error(e)
-            else:
-                st.success(
-                    f"✓ Análise concluída — {result['n_ucs_rateio']} UCs no rateio × "
-                    f"{result['n_extrato']} registros no extrato."
-                )
-    else:
-        st.info("Faça upload das duas planilhas para habilitar a análise.")
-
-    # Guia de uso
-    st.markdown("""
-    <div class="sunne-card" style="margin-top:1rem">
-        <div class="sunne-card-title">Como usar</div>
-        <div style="font-size:13px;color:#7A5060;line-height:1.9">
-            <p>1. Upload da <strong>Planilha de Rateio</strong> com todas as UCs do gerador.</p>
-            <p>2. Upload do <strong>Extrato Detalhado</strong> puxado pelo gerador (mínimo 3 meses recomendado).</p>
-            <p>3. Clique em <strong>Analisar Planilhas</strong>. O sistema cruza as UCs e sinaliza faltantes e inadimplentes por mês.</p>
-            <p>4. <strong>Regra de atraso:</strong> fatura só é sinalizada como faltante se <code>hoje &gt; Leitura Atual + 40 dias</code>.</p>
-            <p>5. Taxa de inadimplência acima de <strong>5%</strong> é destacada em vermelho.</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ── Aba: Gestão de Captura ────────────────────────────────────────────────────
-def tab_captura():
-    result = st.session_state.get("analysis")
-    if not result:
-        st.markdown('<div class="empty" style="text-align:center;padding:3rem;color:#7A5060">📊 Faça o upload e análise das planilhas primeiro.</div>', unsafe_allow_html=True)
-        return
-
-    missing = result.get("missing", {})
-    if not missing:
-        st.markdown('<div class="sunne-card"><div style="text-align:center;padding:2rem;color:#0A7A6A;font-family:Syne,sans-serif;font-size:15px">✅ Nenhuma fatura faltante — todas as UCs estão capturadas!</div></div>', unsafe_allow_html=True)
-        return
-
-    total_faltantes = sum(len(v) for v in missing.values())
-    st.markdown(f'<div class="alert-bar">⚠ {len(missing)} mês(es) com faturas não capturadas — {total_faltantes} ocorrência(s) no total.</div>', unsafe_allow_html=True)
-
-    month_tabs = st.tabs(list(missing.keys()))
-    for tab, (comp, items) in zip(month_tabs, missing.items()):
-        with tab:
-            leitura = items[0].get("leitura") if items else None
-            limite = items[0].get("limite") if items else None
-            leitura_str = leitura.strftime("%d/%m/%Y") if leitura else "—"
-            limite_str = limite.strftime("%d/%m/%Y") if limite else "—"
-
-            col_info, col_dl = st.columns([3, 1])
-            with col_info:
-                st.markdown(f"""
-                <span class="badge badge-warn">{len(items)} UC{'s' if len(items)>1 else ''} sem fatura</span>
-                &nbsp;
-                <span style="font-size:12px;color:#7A5060">Leitura: {leitura_str} · Prazo limite: {limite_str}</span>
-                """, unsafe_allow_html=True)
-            with col_dl:
-                csv_bytes = csv_from_list(
-                    items,
-                    ["comp", "uc", "apelido", "usina"],
-                    ["Competência", "Número da UC", "Apelido/Titular", "Usina"]
-                )
-                st.download_button(
-                    label="⬇ Baixar CSV",
-                    data=csv_bytes,
-                    file_name=f"captura_faltante_{comp.replace(' ', '_')}.csv",
-                    mime="text/csv",
-                    key=f"dl_cap_{comp}",
-                )
-
-            st.markdown(table_html(
-                items,
-                ["uc", "apelido", "usina", "comp"],
-                ["Nº UC", "Apelido / Titular", "Usina", "Competência"]
-            ), unsafe_allow_html=True)
-
-
-# ── Aba: Inadimplência ────────────────────────────────────────────────────────
-def tab_inadimplencia():
-    result = st.session_state.get("analysis")
-    if not result:
-        st.markdown('<div style="text-align:center;padding:3rem;color:#7A5060">💳 Faça o upload e análise das planilhas primeiro.</div>', unsafe_allow_html=True)
-        return
-
-    inadimplentes = result.get("inadimplentes", {})
-    total_por_comp = result.get("total_por_comp", {})
-
-    if not inadimplentes:
-        st.markdown('<div class="sunne-card"><div style="text-align:center;padding:2rem;color:#0A7A6A;font-family:Syne,sans-serif;font-size:15px">✅ Sem inadimplência — todas as faturas estão pagas!</div></div>', unsafe_allow_html=True)
-        return
-
-    for comp, rows in inadimplentes.items():
-        total_inad = sum(r["valor"] for r in rows)
-        total_mes = total_por_comp.get(comp, 0.0)
-        taxa = (total_inad / total_mes * 100) if total_mes > 0 else 0.0
-        danger = taxa > 5.0
-
-        fmt = lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-        st.markdown(f"""
-        <div class="sunne-card">
-            <div class="section-head" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-                <span class="sunne-card-title" style="margin-bottom:0">{comp}</span>
-                <span class="badge {'badge-warn' if danger else 'badge-info'}">{len(rows)} fatura{'s' if len(rows)>1 else ''} em aberto</span>
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown(table_html(
-            rows,
-            ["uc", "titular", "usina", "valor", "status"],
-            ["Nº UC", "Titular", "Usina", "Valor (R$)", "Status"]
-        ), unsafe_allow_html=True)
-
-        taxa_class = "danger" if danger else "ok"
-        taxa_icon = " ▲" if danger else " ✓"
-        st.markdown(f"""
-        <div class="kpi-row">
-            <div class="kpi-box">
-                <div class="kpi-label">Total Inadimplente</div>
-                <div class="kpi-value {taxa_class}">{fmt(total_inad)}</div>
-            </div>
-            <div class="kpi-box">
-                <div class="kpi-label">Total Gerado no Mês</div>
-                <div class="kpi-value">{fmt(total_mes)}</div>
-            </div>
-            <div class="kpi-box">
-                <div class="kpi-label">Taxa de Inadimplência</div>
-                <div class="kpi-value {taxa_class}">{taxa:.1f}%{taxa_icon}</div>
-            </div>
-        </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        csv_bytes = csv_from_list(
-            rows,
-            ["uc", "titular", "usina", "valor", "status"],
-            ["Nº UC", "Titular", "Usina", "Valor", "Status"]
-        )
-        st.download_button(
-            label=f"⬇ Baixar inadimplência — {comp}",
-            data=csv_bytes,
-            file_name=f"inadimplencia_{comp.replace(' ', '_')}.csv",
-            mime="text/csv",
-            key=f"dl_inad_{comp}",
-        )
-
-
-# ── Aba: Admin ────────────────────────────────────────────────────────────────
-def tab_admin():
-    st.markdown('<div class="sunne-card"><div class="sunne-card-title">👤 Cadastrar Novo Usuário</div>', unsafe_allow_html=True)
-    with st.form("new_user_form"):
-        name = st.text_input("Nome completo")
-        email = st.text_input("E-mail (@sunne.com.br)")
-        password = st.text_input("Senha inicial", type="password")
-        role = st.selectbox("Perfil", ["user", "admin"])
-        submitted = st.form_submit_button("Cadastrar Usuário")
-
-    if submitted:
-        if not name or not email or not password:
-            st.error("Preencha todos os campos.")
-        elif "@sunne" not in email.lower():
-            st.error("O e-mail deve ser @sunne.")
-        else:
-            users = load_users()
-            if any(u["email"].lower() == email.lower() for u in users):
-                st.error("Este e-mail já está cadastrado.")
-            else:
-                users.append({"name": name, "email": email, "password": password, "role": role})
-                save_users(users)
-                st.success(f"✓ Usuário {name} ({email}) cadastrado com sucesso!")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="sunne-card"><div class="sunne-card-title">📋 Usuários Cadastrados</div>', unsafe_allow_html=True)
-    users = load_users()
-    rows_html = ""
-    for u in users:
-        badge = '<span class="badge badge-warn">admin</span>' if u["role"] == "admin" else '<span class="badge badge-info">user</span>'
-        rows_html += f"<tr><td>{u['name']}</td><td>{u['email']}</td><td>{badge}</td></tr>"
-
-    st.markdown(f"""
-    <table class="sunne-table">
-        <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th></tr></thead>
-        <tbody>{rows_html}</tbody>
-    </table>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ── App principal ─────────────────────────────────────────────────────────────
-def main():
-    st.markdown(SUNNE_CSS, unsafe_allow_html=True)
-
-    if "user" not in st.session_state:
-        page_login()
-        return
-
-    user = st.session_state["user"]
-    render_header(user)
-
-    # Botão de logout na sidebar
     with st.sidebar:
-        st.markdown(f"**{user['name']}**  \n{user['email']}")
-        if st.button("🚪 Sair"):
-            for key in ["user", "df_rateio", "df_extrato", "analysis"]:
-                st.session_state.pop(key, None)
-            st.rerun()
+        st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=100)
+        st.write("---")
+        menu = ["Gerenciamento", "Usinas", "Geradores", "Faturamento"]
+        if "page" not in st.session_state: st.session_state.page = "Faturamento"
+        for item in menu:
+            if st.button(item): st.session_state.page = item
+        if st.button("🚪 Sair"): del st.session_state["user"]; st.rerun()
 
-    # Abas principais
-    tab_labels = ["📂 Upload de Planilhas", "🔍 Gestão de Captura", "💳 Inadimplência"]
-    if user.get("role") == "admin":
-        tab_labels.append("⚙️ Admin")
+    if st.session_state.page == "Faturamento":
+        t1, t2, t3 = st.tabs(["📂 Importar", "🔍 Captura", "💳 Inadimplência"])
+        
+        with t1:
+            st.markdown('<div class="sunne-card"><div class="kpi-label">Gestão de Arquivos</div>', unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            f_r = c1.file_uploader("Upload Rateio")
+            f_e = c2.file_uploader("Upload Extrato")
+            if f_r and f_e and st.button("🔄 Rodar Análise Completa", use_container_width=True):
+                st.session_state["results"] = analyze_performance(load_planilha(f_r), load_planilha(f_e))
+                st.success("✓ Processado!")
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    tabs = st.tabs(tab_labels)
+        res = st.session_state.get("results")
+        if res:
+            with t2:
+                for comp, items in res["missing"].items():
+                    with st.expander(f"⚠️ {comp} - {len(items)} faturas faltando"):
+                        st.table(pd.DataFrame(items))
+            
+            with t3:
+                # Blocos Mensais
+                for comp, rows in res["inad"].items():
+                    gerado = res["t_gerado"].get(comp, 1.0)
+                    vencido = res["t_vencido"].get(comp, 0.0)
+                    taxa = (vencido / gerado * 100)
+                    
+                    st.markdown(f"### Competência: {comp}")
+                    st.markdown(f"""
+                    <div class="kpi-row">
+                        <div class="kpi-box"><div class="kpi-label">Gerado</div><div class="kpi-value">R$ {gerado:,.2f}</div></div>
+                        <div class="kpi-box"><div class="kpi-label">Vencido</div><div class="kpi-value danger">R$ {vencido:,.2f}</div></div>
+                        <div class="kpi-box"><div class="kpi-label">Taxa</div><div class="kpi-value danger">{taxa:.1f}%</div></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    with st.expander(f"Lista de Clientes Vencidos ({comp})"):
+                        st.table(pd.DataFrame(rows))
+                
+                # SEÇÃO CRÍTICA (REINSERIDA)
+                st.write("---")
+                st.markdown("## 🚨 Inadimplência Crítica (>60 dias)")
+                if res["critical"]:
+                    df_crit = pd.DataFrame(res["critical"])
+                    st.dataframe(df_crit.style.apply(style_critical, axis=1), use_container_width=True, hide_index=True)
+                else:
+                    st.success("Tudo em dia! Nenhuma fatura com atraso crítico.")
 
-    with tabs[0]:
-        tab_upload()
-    with tabs[1]:
-        tab_captura()
-    with tabs[2]:
-        tab_inadimplencia()
-    if user.get("role") == "admin" and len(tabs) > 3:
-        with tabs[3]:
-            tab_admin()
+    else:
+        st.title(f"Aba {st.session_state.page}")
 
-
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
