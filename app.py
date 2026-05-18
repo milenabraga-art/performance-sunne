@@ -1,7 +1,15 @@
 import streamlit as st
 import pandas as pd
-import json, os, io, base64, traceback
+import json, os, io, base64, traceback, threading
 from datetime import datetime, timedelta
+
+# ── Módulo RPA (importação segura — falha silenciosa se libs ausentes) ────────
+try:
+    import robot_captura as _robot
+    ROBOT_DISPONIVEL = True
+except Exception as _robot_err:
+    ROBOT_DISPONIVEL = False
+    _robot_err_msg = str(_robot_err)
 
 # ── PAGE CONFIG ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -112,7 +120,44 @@ h3 { font-size:.95rem!important; font-weight:600!important; color:var(--ink)!imp
 .badge-yellow { background:#FFFBEC; color:#6B4A00; border:1px solid #FFE580; }
 .badge-green { background:#EDFCF6; color:#0A5040; border:1px solid #A0EDCE; }
 
-.sdiv { height:1px; background:var(--border); margin:1.25rem 0; }
+.kb-tag-atrasada { display:inline-block; background:#FFF0F3; color:#8B1530;
+  border:1px solid #FFC8D0; border-radius:4px; padding:1px 7px;
+  font-size:10px; font-weight:700; letter-spacing:.04em; margin-top:3px; }
+.kb-tag-hoje { display:inline-block; background:#FFF3EC; color:#A84010;
+  border:1px solid #FFCBA0; border-radius:4px; padding:1px 7px;
+  font-size:10px; font-weight:700; margin-top:3px; }
+.kb-tag-prog { display:inline-block; background:#EEF4FF; color:#1E3A8A;
+  border:1px solid #B8D0FF; border-radius:4px; padding:1px 7px;
+  font-size:10px; font-weight:600; margin-top:3px; }
+
+.cal-box { background:var(--white); border:1px solid var(--border);
+  border-radius:var(--radius); padding:1rem 1.2rem; box-shadow:var(--shadow); }
+.cal-day-header { font-size:10px; font-weight:700; color:var(--ink-m);
+  text-transform:uppercase; letter-spacing:.06em; margin-bottom:.4rem; }
+.cal-event { background:var(--gold-l); border-left:3px solid var(--gold);
+  border-radius:4px; padding:3px 8px; font-size:11px; margin-bottom:3px;
+  color:var(--ink); }
+.cal-event-atrasado { background:#FFF0F3; border-left:3px solid #C41230;
+  border-radius:4px; padding:3px 8px; font-size:11px; margin-bottom:3px; color:#8B1530; }
+.cal-event-hoje { background:#EDFCF6; border-left:3px solid #0B7A5F;
+  border-radius:4px; padding:3px 8px; font-size:11px; margin-bottom:3px; color:#0A5040; }
+
+.modelo-card { background:var(--white); border:1px solid var(--border);
+  border-radius:var(--radius-s); padding:1rem; margin-bottom:.5rem; }
+.modelo-header { font-size:12px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.06em; padding:.3rem .7rem; border-radius:6px; margin-bottom:.6rem; }
+.modelo-assoc  { background:#EEF4FF; color:#1E3A8A; }
+.modelo-cons   { background:#FFF3EC; color:#A84010; }
+.modelo-auto   { background:#EDFCF6; color:#0A5040; }
+
+.deducao-row { display:flex; justify-content:space-between; align-items:center;
+  padding:.35rem 0; border-bottom:1px solid var(--border-s); font-size:13px; }
+.deducao-label { color:var(--ink-m); }
+.deducao-val-neg { color:#C41230; font-weight:600; }
+.deducao-val-pos { color:#0B7A5F; font-weight:700; font-size:1.05em; }
+
+.notif-banner { background:#FFF3EC; border:1px solid #FFCBA0; border-radius:10px;
+  padding:.8rem 1.1rem; margin-bottom:1rem; font-size:13px; color:#A84010; }
 .sb-user { background:rgba(255,255,255,.08); border-radius:10px; padding:.6rem .8rem; margin-bottom:1rem; }
 .sb-user-name { font-size:13px; color:white; font-weight:500; }
 .sb-user-role { font-size:11px; color:rgba(255,255,255,.5); }
@@ -134,8 +179,15 @@ GERACAO_FILE    = f"{DB}/geracao_usinas.json"
 BACKOFFICE_FILE = f"{DB}/backoffice.json"
 RATEIO_FILE     = f"{DB}/historico_rateios.json"
 ANALISES_FILE   = f"{DB}/historico_analises.json"
+GOOGLE_FILE     = f"{DB}/google_tokens.json"
 
 os.makedirs(DB, exist_ok=True)
+
+# Tarifas base por enquadramento
+TARIFAS_BASE = {"GD1": 0.8182, "GD2": 0.64788}
+
+# Modelos de negócio (múltiplos relatórios de medição)
+MODELOS_NEGOCIO = ["Associação", "Consórcio", "Autoconsumo"]
 
 def _load(path, default):
     if not os.path.exists(path): _save(path, default)
@@ -175,6 +227,29 @@ def load_rateios():     return _load(RATEIO_FILE, {})
 def save_rateios(d):    _save(RATEIO_FILE, d)
 def load_analises():    return _load(ANALISES_FILE, {})
 def save_analises(d):   _save(ANALISES_FILE, d)
+def load_google_tokens(): return _load(GOOGLE_FILE, {})
+def save_google_tokens(d): _save(GOOGLE_FILE, d)
+
+# ── TASK DEADLINE HELPERS ─────────────────────────────────────────────────────
+def task_data_programada(t) -> datetime | None:
+    """Retorna datetime da data programada ou None."""
+    v = t.get("data_programada", "")
+    if not v: return None
+    for fmt in ["%d/%m/%Y %H:%M", "%d/%m/%Y"]:
+        try: return datetime.strptime(str(v).strip(), fmt)
+        except: pass
+    return None
+
+def task_esta_atrasada(t) -> bool:
+    """True se tem data programada, passou, e não está concluída/cancelada."""
+    if t.get("status") in ("Concluido", "Cancelado"): return False
+    dp = task_data_programada(t)
+    return dp is not None and dp.date() < datetime.now().date()
+
+def task_vence_hoje(t) -> bool:
+    if t.get("status") in ("Concluido", "Cancelado"): return False
+    dp = task_data_programada(t)
+    return dp is not None and dp.date() == datetime.now().date()
 
 # ── TASK HELPERS ──────────────────────────────────────────────────────────────
 TIPOS       = ["Avulsa","Análise de Faturamento","Rateio","Captura","Relatório","Auditoria"]
@@ -184,17 +259,19 @@ KB_CSS = {"Em aberto":"kb-aberto","Em andamento":"kb-andamento","Travado":"kb-tr
           "Concluido":"kb-concluido","Cancelado":"kb-cancelado"}
 
 def new_task(titulo, usina, gerador, analista, tipo="Avulsa",
-             agendamento="", descricao="", anexo_nome="", anexo_b64=""):
+             agendamento="", descricao="", anexo_nome="", anexo_b64="",
+             data_programada=""):
     tasks = load_tasks()
     tasks.append({
-        "id":           datetime.now().strftime("%Y%m%d%H%M%S%f"),
-        "titulo":       titulo, "usina":usina, "gerador":gerador,
-        "analista":     analista, "tipo":tipo, "agendamento":agendamento,
-        "descricao":    descricao, "observacoes":"",
-        "anexo_nome":   anexo_nome, "anexo_b64":anexo_b64,
-        "status":       "Em aberto", "motivo_bloqueio":"",
-        "criado_em":    datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "historico":    [],
+        "id":              datetime.now().strftime("%Y%m%d%H%M%S%f"),
+        "titulo":          titulo, "usina":usina, "gerador":gerador,
+        "analista":        analista, "tipo":tipo, "agendamento":agendamento,
+        "data_programada": data_programada,
+        "descricao":       descricao, "observacoes":"",
+        "anexo_nome":      anexo_nome, "anexo_b64":anexo_b64,
+        "status":          "Em aberto", "motivo_bloqueio":"",
+        "criado_em":       datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "historico":       [],
     })
     save_tasks(tasks)
 
@@ -560,9 +637,11 @@ def dialog_nova_atividade(uc_pre="", ger_pre=""):
         uv = c1.text_input("Usina",   value=uc_pre,  disabled=bool(uc_pre))
         gv = c2.text_input("Gerador", value=ger_pre, disabled=bool(ger_pre))
         titulo = st.text_input("Título da atividade *")
-        d1, d2 = st.columns(2)
+        d1, d2, d3 = st.columns(3)
         tipo  = d1.selectbox("Tipo", TIPOS)
         agend = d2.text_input("Agendamento", placeholder="20/05/2026 09:00")
+        data_prog = d3.text_input("📅 Data Programada", placeholder="20/05/2026",
+                                  help="Data limite para execução — o sistema alertará se passar sem conclusão")
         desc  = st.text_area("Descrição / Contexto", height=90,
                              placeholder="Links HubSpot, tickets, notas…")
         anex  = st.file_uploader("📎 Anexo (PDF/Excel — opcional)", type=["pdf","xlsx","xls"])
@@ -578,7 +657,8 @@ def dialog_nova_atividade(uc_pre="", ger_pre=""):
             if anex:
                 an = anex.name
                 ab = base64.b64encode(anex.read()).decode()
-            new_task(titulo.strip(), uv, gv, analista, tipo, agend, desc, an, ab)
+            new_task(titulo.strip(), uv, gv, analista, tipo, agend, desc, an, ab,
+                     data_programada=data_prog.strip())
             st.toast("✅ Atividade criada!", icon="🎉")
             st.success("Atividade criada! Acesse a seção **Atividades** no menu.")
             if st.button("📋 Ver em Atividades"):
@@ -595,7 +675,17 @@ def dialog_task_detail(tid):
     if not t:
         st.error("Tarefa não encontrada."); return
 
-    st.markdown(f"### {t['titulo']}")
+    # ── Cabeçalho ────────────────────────────────────────────────────────────
+    atrasada = task_esta_atrasada(t)
+    hoje_tag  = task_vence_hoje(t)
+    tag_html  = ""
+    if atrasada:
+        tag_html = '<span class="kb-tag-atrasada">⏰ TAREFA ATRASADA</span>'
+    elif hoje_tag:
+        tag_html = '<span class="kb-tag-hoje">🔔 VENCE HOJE</span>'
+
+    st.markdown(f"### {t['titulo']} {tag_html}", unsafe_allow_html=True)
+
     c1, c2, c3 = st.columns(3)
     c1.markdown(f"**Usina** · {t.get('usina','—')}")
     c2.markdown(f"**Gerador** · {t.get('gerador','—')}")
@@ -603,36 +693,95 @@ def dialog_task_detail(tid):
     d1, d2 = st.columns(2)
     d1.markdown(f"**Analista** · {t.get('analista','—')}")
     d2.markdown(f"**Criado** · {t.get('criado_em','—')}")
+
+    dp = t.get("data_programada","")
+    if dp:
+        cor_dp = "#C41230" if atrasada else ("#F36E21" if hoje_tag else "#0B7A5F")
+        st.markdown(f'<span style="color:{cor_dp};font-weight:600">📅 Data Programada · {dp}</span>',
+                    unsafe_allow_html=True)
+
     if t.get("agendamento"): st.markdown(f"**⏰ Agendamento** · {t['agendamento']}")
     if t.get("motivo_bloqueio"): st.markdown(f"**🔒 Motivo** · {t['motivo_bloqueio']}")
     if t.get("descricao","").strip():
         with st.expander("Descrição original"):
             st.write(t["descricao"])
 
-    st.divider()
-    st.markdown("**📝 Log de Atividade**")
-    nova_obs = st.text_area("Nova observação", height=80, key=f"obs_txt_{tid}",
-                            placeholder="Ex: Ligou 14/05 — aguardando doc. Ticket: https://…",
-                            label_visibility="collapsed")
-    if st.button("Registrar observação", key=f"btn_obs_{tid}"):
-        if nova_obs.strip():
-            ts  = datetime.now().strftime("%d/%m/%Y %H:%M")
-            an  = st.session_state["user"]["name"]
-            log = t.get("observacoes","") + f"\n[{ts} — {an}]\n{nova_obs.strip()}\n"
-            update_task(tid, observacoes=log)
-            st.success("Observação salva."); st.rerun()
+    # ── Tabs internas do card ─────────────────────────────────────────────────
+    tc_log, tc_prog, tc_email = st.tabs(["📝 Log", "📅 Programação", "📧 E-mail"])
 
-    if t.get("observacoes","").strip():
-        with st.expander("Ver histórico"):
-            st.text(t["observacoes"].strip())
-    if t.get("historico"):
-        with st.expander("🔄 Movimentações"):
-            for h in t["historico"]:
-                st.write(f"· {h['em']}  `{h['de']}` → `{h['para']}`")
-    if t.get("anexo_nome") and t.get("anexo_b64"):
-        st.download_button(f"📎 {t['anexo_nome']}", base64.b64decode(t["anexo_b64"]),
-                           t["anexo_nome"], key=f"dl_anex_{tid}")
+    with tc_log:
+        nova_obs = st.text_area("Nova observação", height=80, key=f"obs_txt_{tid}",
+                                placeholder="Ex: Ligou 14/05 — aguardando doc. Ticket: https://…",
+                                label_visibility="collapsed")
+        if st.button("Registrar observação", key=f"btn_obs_{tid}"):
+            if nova_obs.strip():
+                ts  = datetime.now().strftime("%d/%m/%Y %H:%M")
+                an  = st.session_state["user"]["name"]
+                log = t.get("observacoes","") + f"\n[{ts} — {an}]\n{nova_obs.strip()}\n"
+                update_task(tid, observacoes=log)
+                st.success("Observação salva."); st.rerun()
+        if t.get("observacoes","").strip():
+            with st.expander("Ver histórico"):
+                st.text(t["observacoes"].strip())
+        if t.get("historico"):
+            with st.expander("🔄 Movimentações"):
+                for h in t["historico"]:
+                    st.write(f"· {h['em']}  `{h['de']}` → `{h['para']}`")
+        if t.get("anexo_nome") and t.get("anexo_b64"):
+            st.download_button(f"📎 {t['anexo_nome']}", base64.b64decode(t["anexo_b64"]),
+                               t["anexo_nome"], key=f"dl_anex_{tid}")
 
+    with tc_prog:
+        st.markdown("**Alterar Data Programada**")
+        nova_dp = st.text_input("Nova data (DD/MM/AAAA)", value=dp,
+                                placeholder="20/05/2026", key=f"dp_inp_{tid}")
+        if st.button("💾 Salvar data", key=f"dp_save_{tid}"):
+            update_task(tid, data_programada=nova_dp.strip())
+            st.success("Data programada atualizada!"); st.rerun()
+
+        st.divider()
+        st.markdown("**Integração Google Calendar**")
+        goog = load_google_tokens()
+        if goog.get("access_token"):
+            st.success("✅ Google conectado")
+            if st.button("📅 Criar evento no Google Calendar", key=f"gcal_{tid}"):
+                _criar_evento_google_calendar(t, goog)
+        else:
+            st.info("Conecte o Google na seção **Integrações** do Dashboard para criar eventos no Calendar.")
+
+    with tc_email:
+        st.markdown("**Enviar e-mail para o Gerador**")
+        goog = load_google_tokens()
+        geradores = load_geradores()
+        ger_obj = next((g for g in geradores
+                        if g.get("gerador","").lower() == t.get("gerador","").lower()), None)
+        email_dest_default = ger_obj.get("contato","") if ger_obj else ""
+
+        if not goog.get("access_token"):
+            st.info("Conecte o Google na seção **Integrações** para enviar e-mail pelo Hub.")
+        else:
+            ep1, ep2 = st.columns(2)
+            email_para = ep1.text_input("Para", value=email_dest_default, key=f"email_para_{tid}")
+            email_assunto = ep2.text_input("Assunto",
+                value=f"[Sunne] {t.get('titulo','')} — {t.get('gerador','')}",
+                key=f"email_assunto_{tid}")
+            email_corpo = st.text_area("Corpo do e-mail", height=150, key=f"email_corpo_{tid}",
+                placeholder="Olá,\n\nEntramos em contato a respeito de...")
+            if st.button("📤 Enviar via Gmail", key=f"email_send_{tid}", use_container_width=True):
+                if not email_para.strip():
+                    st.warning("Informe o destinatário.")
+                else:
+                    ok_mail = _enviar_gmail(goog, email_para, email_assunto, email_corpo, tid)
+                    if ok_mail:
+                        ts  = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        an  = st.session_state["user"]["name"]
+                        log = t.get("observacoes","") + f"\n[{ts} — {an}]\n📧 E-mail enviado para {email_para}: {email_assunto}\n"
+                        update_task(tid, observacoes=log)
+                        st.success(f"✅ E-mail enviado para {email_para}!")
+                    else:
+                        st.error("Falha ao enviar. Verifique a conexão Google.")
+
+    # ── Mover status ──────────────────────────────────────────────────────────
     st.divider()
     st.markdown("**↗ Mover para:**")
     opcoes = [s for s in STATUS_LIST if s != t["status"]]
@@ -735,6 +884,101 @@ def dialog_bi_dashboard(analise_key, comp):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# GOOGLE INTEGRATIONS (Calendar + Gmail)
+# ═══════════════════════════════════════════════════════════════════
+
+def _google_auth_url() -> str:
+    try:
+        client_id = st.secrets["google"]["client_id"]
+    except Exception:
+        client_id = os.environ.get("GOOGLE_CLIENT_ID","")
+    scopes = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.send"
+    redirect = "https://performance-sunne.streamlit.app/"
+    return (
+        f"https://accounts.google.com/o/oauth2/v2/auth"
+        f"?client_id={client_id}"
+        f"&redirect_uri={redirect}"
+        f"&response_type=code"
+        f"&scope={scopes.replace(' ','%20')}"
+        f"&access_type=offline&prompt=consent"
+    )
+
+def _google_exchange_code(code: str) -> dict:
+    import urllib.request, urllib.parse
+    try:
+        client_id     = st.secrets["google"]["client_id"]
+        client_secret = st.secrets["google"]["client_secret"]
+        redirect      = "https://performance-sunne.streamlit.app/"
+    except Exception:
+        return {}
+    data = urllib.parse.urlencode({
+        "code": code, "client_id": client_id, "client_secret": client_secret,
+        "redirect_uri": redirect, "grant_type": "authorization_code"
+    }).encode()
+    req = urllib.request.Request("https://oauth2.googleapis.com/token",
+                                 data=data, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read())
+    except Exception:
+        return {}
+
+def _criar_evento_google_calendar(task: dict, tokens: dict) -> bool:
+    import urllib.request
+    dp = task_data_programada(task)
+    if not dp: dp = datetime.now() + timedelta(days=1)
+    evento = {
+        "summary": f"[Sunne] {task.get('titulo','')}",
+        "description": task.get("descricao","") or task.get("titulo",""),
+        "start": {"dateTime": dp.strftime("%Y-%m-%dT09:00:00"), "timeZone": "America/Fortaleza"},
+        "end":   {"dateTime": dp.strftime("%Y-%m-%dT10:00:00"), "timeZone": "America/Fortaleza"},
+    }
+    req = urllib.request.Request(
+        "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        data=json.dumps(evento).encode(), method="POST")
+    req.add_header("Authorization", f"Bearer {tokens['access_token']}")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=10): return True
+    except Exception: return False
+
+def _enviar_gmail(tokens: dict, para: str, assunto: str, corpo: str, tid: str="") -> bool:
+    import urllib.request, base64 as b64
+    msg_raw = (f"To: {para}\nSubject: {assunto}\nContent-Type: text/plain; charset=utf-8\n\n{corpo}")
+    encoded = b64.urlsafe_b64encode(msg_raw.encode()).decode()
+    payload = json.dumps({"raw": encoded}).encode()
+    req = urllib.request.Request(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+        data=payload, method="POST")
+    req.add_header("Authorization", f"Bearer {tokens['access_token']}")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=10): return True
+    except Exception: return False
+
+def _buscar_eventos_google_semana(tokens: dict) -> list:
+    """Retorna eventos dos próximos 7 dias do Google Calendar."""
+    import urllib.request, urllib.parse
+    agora  = datetime.now()
+    fim    = agora + timedelta(days=7)
+    params = urllib.parse.urlencode({
+        "timeMin": agora.strftime("%Y-%m-%dT00:00:00Z"),
+        "timeMax": fim.strftime("%Y-%m-%dT23:59:59Z"),
+        "singleEvents": "true", "orderBy": "startTime", "maxResults": "30",
+    })
+    req = urllib.request.Request(
+        f"https://www.googleapis.com/calendar/v3/calendars/primary/events?{params}")
+    req.add_header("Authorization", f"Bearer {tokens['access_token']}")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read())
+            return data.get("items", [])
+    except Exception:
+        return []
+
+
+# ═══════════════════════════════════════════════════════════════════
 # SIDEBAR
 # ═══════════════════════════════════════════════════════════════════
 
@@ -771,6 +1015,14 @@ def render_sidebar():
             if st.button(label, key=f"nav_{key}"):
                 st.session_state["page"] = key
 
+        st.markdown('<div class="sec-label">Automação</div>', unsafe_allow_html=True)
+        if st.button("🤖 Captura Automática", key="nav_automacao"):
+            st.session_state["page"] = "automacao"
+
+        st.markdown('<div class="sec-label">Config</div>', unsafe_allow_html=True)
+        if st.button("🔗 Integrações Google", key="nav_integracoes"):
+            st.session_state["page"] = "integracoes"
+
         st.markdown("---")
         if st.button("Sair", key="nav_sair"):
             for k in list(st.session_state.keys()): del st.session_state[k]
@@ -785,11 +1037,35 @@ def page_dashboard():
     user = st.session_state["user"]; an = user["name"]
     st.title("Dashboard")
 
+    # ── Troca OAuth code se presente na URL ──────────────────────────────────
+    params = st.query_params
+    if "code" in params and not load_google_tokens().get("access_token"):
+        tokens = _google_exchange_code(params["code"])
+        if tokens.get("access_token"):
+            save_google_tokens(tokens)
+            st.query_params.clear()
+            st.success("✅ Google conectado com sucesso!")
+
     gers    = [g for g in load_geradores() if g.get("analista","").lower() == an.lower()]
     usis    = [u for u in load_usinas()    if u.get("analista","").lower() == an.lower()]
     tasks   = load_tasks()
     geracao = load_geracao()
     bo      = load_backoffice()
+
+    # ── Notificação de atividades do dia / atrasadas ──────────────────────────
+    minhas_tasks = [t for t in tasks if t.get("analista","").lower() == an.lower()]
+    vence_hoje   = [t for t in minhas_tasks if task_vence_hoje(t)]
+    atrasadas    = [t for t in minhas_tasks if task_esta_atrasada(t)]
+    if vence_hoje or atrasadas:
+        linhas = []
+        if vence_hoje:
+            linhas.append(f"🔔 <b>{len(vence_hoje)}</b> atividade(s) programada(s) para <b>hoje</b>: "
+                          + ", ".join(f"<i>{t['titulo']}</i>" for t in vence_hoje[:3]))
+        if atrasadas:
+            linhas.append(f"⏰ <b>{len(atrasadas)}</b> atividade(s) <b>atrasada(s)</b>: "
+                          + ", ".join(f"<i>{t['titulo']}</i>" for t in atrasadas[:3]))
+        st.markdown(f'<div class="notif-banner">{"<br>".join(linhas)}</div>',
+                    unsafe_allow_html=True)
 
     ab    = [t for t in tasks if t["status"] == "Em aberto"]
     and_  = [t for t in tasks if t["status"] == "Em andamento"]
@@ -806,38 +1082,89 @@ def page_dashboard():
             f'<div class="kpi-label">{lbl}</div></div>', unsafe_allow_html=True)
 
     st.write("")
-    st.markdown("#### Alertas Operacionais")
-    mes = datetime.now().strftime("%m/%Y")
-    uc_ger_mes = {g["uc"] for g in geracao if g.get("competencia","") == mes}
-    usi_ids    = {u["uc"] for u in usis}
-    alerts = []
 
-    for uc in usi_ids - uc_ger_mes:
-        ui = next((x for x in usis if x["uc"] == uc), {})
-        alerts.append(("r", f"⚡ Usina <b>{ui.get('ufv',uc)}</b> sem geração registrada em {mes}."))
-    for uc in uc_ger_mes:
-        r = next((x for x in bo if str(x.get("uc","")) == str(uc)), None)
-        if r:
-            c = clean_val(r.get("consumo_total",0)); s = clean_val(r.get("saldo_credito",0))
-            if c > 0 and s/c > 6:
-                ui = next((x for x in usis if str(x["uc"]) == str(uc)), {})
-                alerts.append(("y", f"💰 Usina <b>{ui.get('ufv',uc)}</b>: saldo acumulado > 6 meses."))
+    # ── Layout: alertas + calendário ─────────────────────────────────────────
+    col_main, col_cal = st.columns([3, 2])
 
-    if not alerts:
-        st.markdown('<div class="alert alert-g">✅ Nenhum alerta operacional.</div>', unsafe_allow_html=True)
-    else:
-        for k, m in alerts:
-            st.markdown(f'<div class="alert alert-{k}">{m}</div>', unsafe_allow_html=True)
+    with col_main:
+        st.markdown("#### Alertas Operacionais")
+        mes = datetime.now().strftime("%m/%Y")
+        uc_ger_mes = {g["uc"] for g in geracao if g.get("competencia","") == mes}
+        usi_ids    = {u["uc"] for u in usis}
+        alerts = []
+        for uc in usi_ids - uc_ger_mes:
+            ui = next((x for x in usis if x["uc"] == uc), {})
+            alerts.append(("r", f"⚡ Usina <b>{ui.get('ufv',uc)}</b> sem geração registrada em {mes}."))
+        for uc in uc_ger_mes:
+            r = next((x for x in bo if str(x.get("uc","")) == str(uc)), None)
+            if r:
+                c = clean_val(r.get("consumo_total",0)); s = clean_val(r.get("saldo_credito",0))
+                if c > 0 and s/c > 6:
+                    ui = next((x for x in usis if str(x["uc"]) == str(uc)), {})
+                    alerts.append(("y", f"💰 Usina <b>{ui.get('ufv',uc)}</b>: saldo acumulado > 6 meses."))
+        if not alerts:
+            st.markdown('<div class="alert alert-g">✅ Nenhum alerta operacional.</div>', unsafe_allow_html=True)
+        else:
+            for k, m in alerts:
+                st.markdown(f'<div class="alert alert-{k}">{m}</div>', unsafe_allow_html=True)
 
-    st.write("")
-    st.markdown("#### Tarefas Abertas")
-    pend = ab + and_
-    if pend:
-        df_p = pd.DataFrame(pend)[["titulo","usina","gerador","analista","status","criado_em"]]
-        df_p.columns = ["Título","Usina","Gerador","Analista","Status","Criado em"]
-        st.dataframe(df_p, use_container_width=True, hide_index=True)
-    else:
-        st.success("Nenhuma tarefa pendente.")
+        st.write("")
+        st.markdown("#### Tarefas Abertas")
+        pend = ab + and_
+        if pend:
+            df_p = pd.DataFrame(pend)
+            cols_p = [c for c in ["titulo","usina","gerador","analista","status","data_programada","criado_em"] if c in df_p.columns]
+            df_p = df_p[cols_p]
+            df_p.columns = [{"titulo":"Título","usina":"Usina","gerador":"Gerador",
+                              "analista":"Analista","status":"Status",
+                              "data_programada":"Data Prog.","criado_em":"Criado em"}.get(c,c)
+                            for c in cols_p]
+            st.dataframe(df_p, use_container_width=True, hide_index=True)
+        else:
+            st.success("Nenhuma tarefa pendente.")
+
+    with col_cal:
+        st.markdown("#### 📅 Agenda da Semana")
+        # Atividades programadas do Hub
+        hoje = datetime.now().date()
+        dias = [hoje + timedelta(days=i) for i in range(7)]
+        goog = load_google_tokens()
+        eventos_google = _buscar_eventos_google_semana(goog) if goog.get("access_token") else []
+
+        st.markdown('<div class="cal-box">', unsafe_allow_html=True)
+        for dia in dias:
+            dia_str   = dia.strftime("%d/%m")
+            dia_label = dia.strftime("%a %d/%m").upper()
+            # Tarefas do Hub neste dia
+            tasks_dia = [t for t in minhas_tasks
+                         if task_data_programada(t) and
+                         task_data_programada(t).date() == dia]
+            # Eventos Google neste dia
+            ev_google = [e for e in eventos_google
+                         if (e.get("start",{}).get("dateTime","") or
+                             e.get("start",{}).get("date","")).startswith(dia.strftime("%Y-%m-%d"))]
+
+            if not tasks_dia and not ev_google: continue
+            st.markdown(f'<div class="cal-day-header">{dia_label}</div>', unsafe_allow_html=True)
+            for t in tasks_dia:
+                cls = "cal-event-atrasado" if task_esta_atrasada(t) else \
+                      ("cal-event-hoje"     if dia == hoje else "cal-event")
+                st.markdown(f'<div class="{cls}">📌 {t["titulo"]}</div>', unsafe_allow_html=True)
+            for ev in ev_google:
+                titulo_ev = ev.get("summary","(sem título)")
+                hora_ev   = (ev.get("start",{}).get("dateTime","") or "")
+                hora_fmt  = hora_ev[11:16] if len(hora_ev) > 15 else ""
+                st.markdown(f'<div class="cal-event">🗓 {hora_fmt} {titulo_ev}</div>',
+                            unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if not goog.get("access_token"):
+            auth_url = _google_auth_url()
+            st.markdown(
+                f'<a href="{auth_url}" target="_self" style="display:inline-block;margin-top:.6rem;'
+                f'background:#F36E21;color:white;padding:.45rem 1.1rem;border-radius:8px;'
+                f'font-size:13px;font-weight:500;text-decoration:none">🔗 Conectar Google Calendar</a>',
+                unsafe_allow_html=True)
 
 
 def page_geradores():
@@ -895,10 +1222,19 @@ def page_usinas():
     if st.session_state.get("show_add_usi"):
         with st.form("fau", clear_on_submit=True):
             st.markdown("**Nova Usina**")
-            a1, a2 = st.columns(2); b1, b2, b3 = st.columns(3)
+            a1, a2 = st.columns(2)
             uc    = a1.text_input("UC *"); ger = a2.text_input("Gerador")
+            b1, b2, b3 = st.columns(3)
             ufv   = b1.text_input("UFV"); ativa = b2.selectbox("Ativa", ["Sim","Não"])
             gest  = b3.number_input("Geração estimada kWh", min_value=0.0, step=1.0)
+            # Campos de contrato
+            c1, c2, c3 = st.columns(3)
+            enquad = c1.selectbox("Enquadramento", list(TARIFAS_BASE.keys()),
+                                  help="GD1 = tarifa 0.8182 · GD2 = 0.64788")
+            pct_desc_u = c2.number_input("% Desconto Gerador", 0.0, 1.0, 0.20, 0.01,
+                                         format="%.2f", help="Ex: 0.20 = 20%")
+            pct_taxa_u = c3.number_input("% Taxa Admin Sunne",  0.0, 1.0, 0.07, 0.01,
+                                         format="%.2f", help="Ex: 0.07 = 7%")
             s, c  = st.columns(2)
             sal   = s.form_submit_button("Salvar"); canc = c.form_submit_button("Cancelar")
         if sal:
@@ -907,6 +1243,9 @@ def page_usinas():
                 us = load_usinas()
                 us.append({"uc":str(uc).strip(),"gerador":ger.strip(),"ufv":ufv.strip(),
                             "analista":an,"ativa":ativa,"geracao_estimada":gest,
+                            "enquadramento":enquad,
+                            "pct_desconto_gerador":float(pct_desc_u),
+                            "pct_taxa_admin":float(pct_taxa_u),
                             "criado_em":datetime.now().strftime("%d/%m/%Y")})
                 save_usinas(us); st.session_state["show_add_usi"] = False; st.rerun()
         if canc: st.session_state["show_add_usi"] = False; st.rerun()
@@ -932,6 +1271,9 @@ def page_usinas():
                             "ufv":str(row.get("ufv","")),"analista":an,
                             "ativa":str(row.get("ativa","Sim")),
                             "geracao_estimada":clean_val(row.get("geracao_estimada",0)),
+                            "enquadramento":str(row.get("enquadramento","GD1")),
+                            "pct_desconto_gerador":clean_val(row.get("pct_desconto_gerador",0.20)),
+                            "pct_taxa_admin":clean_val(row.get("pct_taxa_admin",0.07)),
                             "criado_em":datetime.now().strftime("%d/%m/%Y")})
                         uc_ex.add(uv); n += 1
                 save_usinas(us); st.session_state["show_imp_usi"] = False
@@ -1010,6 +1352,15 @@ def page_atividades():
                               if l.startswith("[")]) if t.get("observacoes") else 0
                 obs_h = f'<span class="kb-obs-badge">📝 {n_obs}</span>' if n_obs > 0 else ""
 
+                # Tags de prazo
+                prazo_tag = ""
+                if task_esta_atrasada(t):
+                    prazo_tag = '<span class="kb-tag-atrasada">⏰ ATRASADA</span>'
+                elif task_vence_hoje(t):
+                    prazo_tag = '<span class="kb-tag-hoje">🔔 HOJE</span>'
+                elif t.get("data_programada"):
+                    prazo_tag = f'<span class="kb-tag-prog">📅 {t["data_programada"]}</span>'
+
                 st.markdown(f"""
                 <div class="kb-card">
                   <div class="kb-card-title">{t['titulo']}</div>
@@ -1020,7 +1371,7 @@ def page_atividades():
                     📅 {t.get('criado_em','')}
                   </div>
                   <div class="{sc}">⏱ SLA: {dias}d</div>
-                  {obs_h}{mot_h}
+                  {prazo_tag}{obs_h}{mot_h}
                 </div>""", unsafe_allow_html=True)
 
                 if st.button("Abrir", key=f"open_{tid}", use_container_width=True):
@@ -1151,7 +1502,12 @@ def page_backoffice():
     geradores = load_geradores(); nomes = [g["gerador"] for g in geradores]
     if not nomes: st.warning("Cadastre geradores primeiro."); return
 
-    sel_ger = st.selectbox("Vincular ao Gerador", sorted(set(nomes)), key="bo_ger")
+    bc1, bc2 = st.columns(2)
+    sel_ger  = bc1.selectbox("Vincular ao Gerador", sorted(set(nomes)), key="bo_ger")
+    comp_bo  = bc2.text_input("Competência (MM/AAAA)",
+                               value=datetime.now().strftime("%m/%Y"), key="bo_comp",
+                               help="Competência referente a este extrato — salva o histórico por mês")
+
     f = st.file_uploader("Extrato Detalhado", type=["xlsx","xls","csv"], key="up_bo")
     if f and st.button("Processar Extrato"):
         try:
@@ -1161,36 +1517,58 @@ def page_backoffice():
                     df.columns = [str(c).strip() for c in row]
                     df = df.iloc[i+1:].reset_index(drop=True); break
             df.columns = [str(c).strip() for c in df.columns]; df = df.fillna("")
-            uc_c  = next((c for c in df.columns if "Número da UC" in c), None)
-            co_c  = next((c for c in df.columns if "Consumo"      in c), None)
-            sa_c  = next((c for c in df.columns if "Saldo"        in c), None)
-            ti_c  = next((c for c in df.columns if "Tipo"         in c or "Instalação" in c), None)
-            tt_c  = next((c for c in df.columns if "Titular"      in c), None)
+            uc_c  = next((c for c in df.columns if "Número da UC"   in c), None)
+            co_c  = next((c for c in df.columns if "Consumo"        in c), None)
+            sa_c  = next((c for c in df.columns if "Saldo"          in c), None)
+            ti_c  = next((c for c in df.columns if "Tipo"           in c or "Instalação" in c), None)
+            tt_c  = next((c for c in df.columns if "Titular"        in c), None)
+            cred_c= next((c for c in df.columns if "Créditos"       in c and "Utiliz" in c), None)
+            tarf_c= next((c for c in df.columns if "Tarifa Compensável" in c), None)
             if not uc_c: st.error("Coluna 'Número da UC' não encontrada."); return
-            bo = load_backoffice(); nn = nu = 0
+            bo = load_backoffice(); nn = 0
             for _, row in df.iterrows():
                 uv = str(row[uc_c]).strip()
                 if not uv: continue
-                rec = {"uc":uv,"gerador":sel_ger,
-                       "titular":       str(row[tt_c]) if tt_c else "—",
-                       "consumo_total": clean_val(row[co_c]) if co_c else 0,
-                       "saldo_credito": clean_val(row[sa_c]) if sa_c else 0,
-                       "tipo_instalacao":str(row[ti_c]) if ti_c else "—",
-                       "atualizado_em": datetime.now().strftime("%d/%m/%Y %H:%M")}
-                ix = next((i for i, b in enumerate(bo) if str(b["uc"]) == uv), None)
-                if ix is not None: bo[ix] = rec; nu += 1
-                else: bo.append(rec); nn += 1
+                # SEMPRE adiciona — histórico por competência
+                rec = {
+                    "uc":            uv,
+                    "gerador":       sel_ger,
+                    "competencia":   comp_bo.strip(),
+                    "titular":       str(row[tt_c])   if tt_c   else "—",
+                    "consumo_total": clean_val(row[co_c]) if co_c else 0,
+                    "saldo_credito": clean_val(row[sa_c]) if sa_c else 0,
+                    "creditos_utilizados": clean_val(row[cred_c]) if cred_c else 0,
+                    "tarifa_compensavel":  clean_val(row[tarf_c]) if tarf_c else 0,
+                    "tipo_instalacao":str(row[ti_c]) if ti_c else "—",
+                    "importado_em":  datetime.now().strftime("%d/%m/%Y %H:%M"),
+                }
+                bo.append(rec); nn += 1
             save_backoffice(bo)
-            st.success(f"✅ {nn} novos · {nu} atualizados — Gerador: **{sel_ger}**")
+            st.success(f"✅ {nn} registros adicionados ao histórico — Gerador: **{sel_ger}** · Competência: **{comp_bo}**")
         except Exception as e: st.error(str(e))
 
     bo = load_backoffice()
     if bo:
-        st.markdown("#### Base de Consumo")
-        gf = st.selectbox("Filtrar Gerador",
-                          ["Todos"] + sorted({b.get("gerador","—") for b in bo}), key="bo_f")
-        bof = bo if gf == "Todos" else [b for b in bo if b.get("gerador","") == gf]
-        st.dataframe(pd.DataFrame(bof), use_container_width=True, hide_index=True)
+        st.markdown("#### Histórico de Consumo")
+        bf1, bf2, bf3 = st.columns(3)
+        gf = bf1.selectbox("Filtrar Gerador",
+                           ["Todos"] + sorted({b.get("gerador","—") for b in bo}), key="bo_f")
+        comps_bo = sorted({b.get("competencia","") for b in bo if b.get("competencia","")},
+                          key=comp_sort_key, reverse=True)
+        cf = bf2.selectbox("Competência", ["Todas"] + comps_bo, key="bo_cf")
+        uc_f = bf3.text_input("UC", placeholder="todos", key="bo_uc_f")
+
+        bof = bo
+        if gf != "Todos":   bof = [b for b in bof if b.get("gerador","") == gf]
+        if cf != "Todas":   bof = [b for b in bof if b.get("competencia","") == cf]
+        if uc_f.strip():    bof = [b for b in bof if uc_f.strip() in str(b.get("uc",""))]
+
+        st.caption(f"{len(bof)} registros")
+        df_bo = pd.DataFrame(bof)
+        cols_bo = [c for c in ["competencia","uc","gerador","titular","consumo_total",
+                                "saldo_credito","creditos_utilizados","tarifa_compensavel",
+                                "tipo_instalacao","importado_em"] if c in df_bo.columns]
+        st.dataframe(df_bo[cols_bo], use_container_width=True, hide_index=True)
     else:
         st.info("Nenhum dado ainda.")
 
@@ -1456,289 +1834,888 @@ def page_faturamento():
 
 
 # ═══════════════════════════════════════════════════════════════════
-# PÁGINA: ANÁLISE BI (NOVA)
+# PÁGINA: ANÁLISE BI — multi-modelo (v8)
 # ═══════════════════════════════════════════════════════════════════
+
+def _kpi(col, lbl, val, fmt="R$ {:,.2f}", delta=None):
+    delta_html = ""
+    if delta is not None:
+        sinal = "▲" if delta >= 0 else "▼"
+        cls   = "kpi-up" if delta >= 0 else "kpi-down"
+        delta_html = f'<div class="kpi-delta {cls}">{sinal} {abs(delta):.1f}%</div>'
+    col.markdown(
+        f'<div class="kpi-box"><div class="kpi-value">{fmt.format(val)}</div>'
+        f'<div class="kpi-label">{lbl}</div>{delta_html}</div>',
+        unsafe_allow_html=True)
+
+def _calcular_multi_modelo(medicoes_por_modelo: dict, extrato_df, gerador_cfg: dict) -> dict:
+    """
+    medicoes_por_modelo : {"Associação": {parsed_dict}, "Consórcio": {...}, ...}
+    Retorna indicadores consolidados + breakdown por modelo.
+    """
+    MODELOS_CSS = {"Associação":"modelo-assoc","Consórcio":"modelo-cons","Autoconsumo":"modelo-auto"}
+    ind_total = {
+        "faturamento_bruto":0.0, "faturamento_liquido":0.0,
+        "percentual_sunne":0.0,  "tarifas_bancarias":0.0,
+        "outros":0.0, "por_modelo":{}, "por_usina":[],
+        "creditos_utilizados":0.0, "inadimplencia_valor":0.0,
+        "total_faturado":0.0, "pct_inadimplencia":0.0,
+        "media_tarifa_compensavel":0.0, "eficiencia_rateio":0.0,
+        "retorno_bruto_estimado":0.0, "tarifa_retorno":0.0,
+        "energia_utilizada_fatura":0.0,
+    }
+
+    pct_desc  = gerador_cfg.get("pct_desconto_gerador", 0.0)
+    pct_admin = gerador_cfg.get("pct_taxa_admin", 0.0)
+    enquad    = gerador_cfg.get("enquadramento", "GD1")
+    tarifa_b  = TARIFAS_BASE.get(enquad, 0.8182)
+
+    tarifa_retorno_base = tarifa_b * (1 - pct_desc) * (1 - pct_admin)
+
+    tarifas_soma = []
+
+    for modelo, med in medicoes_por_modelo.items():
+        m_ind = calcular_indicadores_bi(med, extrato_df if modelo == list(medicoes_por_modelo.keys())[0] else None, gerador_cfg)
+        ind_total["por_modelo"][modelo] = {
+            "faturamento_bruto":   med.get("faturamento_bruto",0),
+            "faturamento_liquido": med.get("faturamento_liquido",0),
+            "percentual_sunne":    med.get("percentual_sunne",0),
+            "tarifas_bancarias":   med.get("tarifas_bancarias",0),
+            "outros":              med.get("outros",0),
+            "css":                 MODELOS_CSS.get(modelo,"modelo-assoc"),
+        }
+        ind_total["faturamento_bruto"]   += med.get("faturamento_bruto",0)
+        ind_total["faturamento_liquido"] += med.get("faturamento_liquido",0)
+        ind_total["percentual_sunne"]    += med.get("percentual_sunne",0)
+        ind_total["tarifas_bancarias"]   += med.get("tarifas_bancarias",0)
+        ind_total["outros"]              += med.get("outros",0)
+        ind_total["por_usina"].extend(med.get("por_usina",[]))
+
+        if m_ind.get("media_tarifa_compensavel",0) > 0:
+            tarifas_soma.append(m_ind["media_tarifa_compensavel"])
+
+    # Extrato (só cruza uma vez — carregado pelo caller)
+    if extrato_df is not None and not extrato_df.empty:
+        df = extrato_df.copy()
+        col_status = next((c for c in df.columns if "Status"           in c), None)
+        col_cred   = next((c for c in df.columns if "Créditos"         in c and "Utiliz" in c), None)
+        col_tarifa = next((c for c in df.columns if "Tarifa Compensável" in c), None)
+        col_ener   = next((c for c in df.columns if "Energia Utilizada" in c), None)
+        col_valor  = next((c for c in df.columns if "Total a Pagar"     in c), None)
+        for col in [col_cred, col_tarifa, col_ener, col_valor]:
+            if col: df[col] = df[col].apply(clean_val)
+        mask_ativo = df[col_status].astype(str).str.lower().isin(["pago","vencido"]) if col_status else pd.Series([True]*len(df))
+        mask_venc  = df[col_status].astype(str).str.lower() == "vencido" if col_status else pd.Series([False]*len(df))
+
+        if col_cred:  ind_total["creditos_utilizados"]      = float(df.loc[mask_ativo, col_cred].sum())
+        if col_ener:  ind_total["energia_utilizada_fatura"] = float(df.loc[mask_ativo, col_ener].sum())
+        if col_valor:
+            ind_total["total_faturado"]      = float(df.loc[mask_ativo, col_valor].sum())
+            ind_total["inadimplencia_valor"] = float(df.loc[mask_venc,  col_valor].sum())
+        if col_tarifa:
+            vals = df.loc[mask_ativo, col_tarifa]
+            vals = vals[vals > 0]
+            ind_total["media_tarifa_compensavel"] = float(vals.mean()) if len(vals) > 0 else 0.0
+        if ind_total["total_faturado"] > 0:
+            ind_total["pct_inadimplencia"] = ind_total["inadimplencia_valor"] / ind_total["total_faturado"] * 100
+
+    # Tarifa retorno — usa média do extrato ou a base calculada
+    tarifa_comp = ind_total["media_tarifa_compensavel"] if ind_total["media_tarifa_compensavel"] > 0 else tarifa_retorno_base
+    ind_total["tarifa_retorno"] = tarifa_comp * (1 - pct_desc) * (1 - pct_admin) if ind_total["media_tarifa_compensavel"] > 0 else tarifa_retorno_base
+
+    base_kwh = ind_total["creditos_utilizados"] if ind_total["creditos_utilizados"] > 0 else ind_total["faturamento_bruto"]
+    ind_total["retorno_bruto_estimado"] = ind_total["tarifa_retorno"] * base_kwh
+
+    if ind_total["faturamento_bruto"] > 0 and ind_total["creditos_utilizados"] > 0:
+        ind_total["eficiencia_rateio"] = round(ind_total["creditos_utilizados"] / ind_total["faturamento_bruto"] * 100, 2)
+
+    # Previsão pela injeção (tarifa base)
+    ind_total["tarifa_retorno_base"]   = tarifa_retorno_base
+    ind_total["enquadramento"]         = enquad
+    ind_total["tarifa_base"]           = tarifa_b
+
+    return ind_total
+
+
+def _render_deducoes(ind: dict):
+    """Waterfall de deduções do faturamento bruto → líquido."""
+    fat_bruto = ind.get("faturamento_bruto", 0.0)
+    pct_sunne = ind.get("percentual_sunne", 0.0)
+    tar_banc  = ind.get("tarifas_bancarias", 0.0)
+    outros    = ind.get("outros", 0.0)
+    fat_liq   = ind.get("faturamento_liquido", 0.0)
+
+    st.markdown("**📊 Composição do Faturamento Líquido**")
+    itens = [
+        ("Faturamento Bruto",       fat_bruto,            False),
+        ("(−) % Sunne",             -abs(pct_sunne),      True),
+        ("(−) Tarifas Bancárias",   -abs(tar_banc),       True),
+        ("(−) Outros",              -abs(outros),         True),
+        ("= Faturamento Líquido",   fat_liq,              False),
+    ]
+    for label, val, is_ded in itens:
+        cls_val = "deducao-val-neg" if is_ded else "deducao-val-pos"
+        fmt_val = f"R$ {val:,.2f}"
+        st.markdown(
+            f'<div class="deducao-row">'
+            f'<span class="deducao-label">{label}</span>'
+            f'<span class="{cls_val}">{fmt_val}</span>'
+            f'</div>', unsafe_allow_html=True)
+
+    # Por modelo
+    por_modelo = ind.get("por_modelo", {})
+    if por_modelo:
+        st.markdown("<br>**Por Modelo de Negócio:**", unsafe_allow_html=True)
+        for modelo, md in por_modelo.items():
+            css = md.get("css","modelo-assoc")
+            st.markdown(f'<div class="modelo-card">'
+                        f'<div class="modelo-header {css}">{modelo}</div>', unsafe_allow_html=True)
+            sub_itens = [
+                ("Bruto",       md.get("faturamento_bruto",0),    False),
+                ("(−) Sunne",   -abs(md.get("percentual_sunne",0)), True),
+                ("(−) Banc.",   -abs(md.get("tarifas_bancarias",0)), True),
+                ("Líquido",     md.get("faturamento_liquido",0),   False),
+            ]
+            for sl, sv, sd in sub_itens:
+                cls_sv = "deducao-val-neg" if sd else "deducao-val-pos"
+                st.markdown(f'<div class="deducao-row" style="font-size:12px">'
+                            f'<span class="deducao-label">{sl}</span>'
+                            f'<span class="{cls_sv}">R$ {sv:,.2f}</span>'
+                            f'</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
 
 def page_bi_analise():
     st.title("📊 Análise de Faturamento · BI")
 
-    geradores = load_geradores()
-    nomes_ger = sorted({g["gerador"] for g in geradores})
+    geradores     = load_geradores()
+    nomes_ger     = sorted({g["gerador"] for g in geradores})
     hist_analises = load_analises()
 
     tab_importar, tab_historico = st.tabs(["Importar & Calcular","📁 Histórico & Relatórios"])
 
-    # ══ IMPORTAR ══
+    # ══ IMPORTAR ══════════════════════════════════════════════════════════════
     with tab_importar:
         st.markdown("#### Configuração do Período")
-        col_ger, col_comp, col_desc, col_taxa = st.columns(4)
+        col_ger, col_comp, col_enq, col_desc, col_taxa = st.columns(5)
 
         if not nomes_ger:
-            st.info("Cadastre geradores primeiro na seção Geradores.")
-        else:
-            ger_sel  = col_ger.selectbox("Gerador", nomes_ger, key="bi_ger_sel")
-            comp_sel = col_comp.text_input("Competência (MM/AAAA)", value=datetime.now().strftime("%m/%Y"), key="bi_comp")
-            pct_desc = col_desc.number_input("% Desconto Gerador", 0.0, 1.0, 0.20, 0.01, format="%.2f", key="bi_desc",
-                                             help="Ex: 0.20 = 20%")
-            pct_taxa = col_taxa.number_input("% Taxa Admin Sunne", 0.0, 1.0, 0.07, 0.01, format="%.2f", key="bi_taxa",
-                                             help="Ex: 0.07 = 7%")
-
-            st.markdown("#### Uploads de Documentos")
-            st.caption("Faça upload do Relatório de Medição (obrigatório) e opcionalmente do Extrato Detalhado.")
-            up_col1, up_col2 = st.columns(2)
-            f_medicao  = up_col1.file_uploader("📋 Relatório de Medição (xlsx)", type=["xlsx","xls"], key="bi_medicao")
-            f_extrato  = up_col2.file_uploader("📄 Extrato Detalhado (xlsx/csv)", type=["xlsx","xls","csv"], key="bi_extrato")
-
-            # Verificar se já existe análise salva para este gerador/comp
-            chave = f"{ger_sel}||{comp_sel}"
-            ja_existe = chave in hist_analises and comp_sel in hist_analises.get(chave, {})
-
-            if ja_existe:
-                st.markdown('<div class="alert alert-b">📂 Análise já processada para esta competência. Carregada do histórico abaixo.</div>',
-                            unsafe_allow_html=True)
-
-            btn_calcular = st.button("⚡ Calcular Indicadores", type="primary", key="btn_bi_calc",
-                                     disabled=(f_medicao is None and not ja_existe))
-
-            if btn_calcular:
-                with st.spinner("Processando dados…"):
-                    try:
-                        # Parse do Relatório de Medição
-                        if f_medicao:
-                            med_bytes = f_medicao.read()
-                            medicao   = parse_relatorio_medicao(med_bytes)
-                        elif ja_existe:
-                            medicao = hist_analises[chave][comp_sel].get("medicao_raw", {})
-                        else:
-                            st.error("Relatório de Medição obrigatório."); return
-
-                        # Extrato detalhado
-                        extrato_df = None
-                        if f_extrato:
-                            extrato_df = load_planilha(f_extrato)
-                            if extrato_df is None or extrato_df.empty:
-                                extrato_df = None
-
-                        gerador_cfg = {"pct_desconto_gerador": float(pct_desc),
-                                       "pct_taxa_admin":       float(pct_taxa)}
-
-                        ind = calcular_indicadores_bi(medicao, extrato_df, gerador_cfg)
-
-                        # Buscar indicadores do mês anterior para comparação
-                        ind_anterior = None
-                        try:
-                            mes, ano = comp_sel.split("/")
-                            comp_ant = f"{int(mes)-1:02d}/{ano}" if int(mes) > 1 else f"12/{int(ano)-1}"
-                            if chave in hist_analises and comp_ant in hist_analises[chave]:
-                                ind_anterior = hist_analises[chave][comp_ant].get("indicadores")
-                        except: pass
-
-                        ind["indicadores_anterior"] = ind_anterior
-
-                        # Salvar no histórico
-                        hist_analises.setdefault(chave, {})
-                        hist_analises[chave][comp_sel] = {
-                            "gerador":       ger_sel,
-                            "competencia":   comp_sel,
-                            "processado_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "gerador_cfg":   gerador_cfg,
-                            "medicao_raw":   medicao,
-                            "indicadores":   ind,
-                        }
-                        save_analises(hist_analises)
-                        st.session_state["bi_resultado_chave"] = chave
-                        st.session_state["bi_resultado_comp"]  = comp_sel
-                        st.success("✅ Análise calculada e salva no histórico!")
-                        st.rerun()
-
-                    except Exception as e:
-                        st.error(f"Erro no processamento: {e}")
-                        st.code(traceback.format_exc())
-
-            # ── Exibir resultado se calculado ──
-            res_chave = st.session_state.get("bi_resultado_chave")
-            res_comp  = st.session_state.get("bi_resultado_comp")
-
-            if res_chave and res_comp and res_chave in hist_analises:
-                dados_comp = hist_analises[res_chave].get(res_comp)
-                if dados_comp:
-                    ind = dados_comp.get("indicadores", {})
-                    st.markdown('<div class="sdiv"></div>', unsafe_allow_html=True)
-                    st.markdown(f"### Resultado · {dados_comp['gerador']} · {res_comp}")
-                    st.caption(f"Processado em: {dados_comp.get('processado_em','—')}")
-
-                    # KPIs
-                    k1, k2, k3, k4, k5, k6 = st.columns(6)
-                    for col, lbl, val, fmt in [
-                        (k1, "Faturamento Bruto",   ind.get("faturamento_bruto",0),    "R$ {:,.2f}"),
-                        (k2, "Faturamento Líquido", ind.get("faturamento_liquido",0),   "R$ {:,.2f}"),
-                        (k3, "Créditos Utilizados", ind.get("creditos_utilizados",0),   "{:,.1f} kWh"),
-                        (k4, "Eficiência Rateio",   ind.get("eficiencia_rateio",0),     "{:.1f}%"),
-                        (k5, "Inadimplência",        ind.get("pct_inadimplencia",0),    "{:.1f}%"),
-                        (k6, "Retorno Bruto Est.",   ind.get("retorno_bruto_estimado",0),"R$ {:,.2f}"),
-                    ]:
-                        col.markdown(
-                            f'<div class="kpi-box"><div class="kpi-value">{fmt.format(val)}</div>'
-                            f'<div class="kpi-label">{lbl}</div></div>', unsafe_allow_html=True)
-
-                    st.write("")
-
-                    # Insights automáticos
-                    insights = gerar_insights(ind, ind.get("indicadores_anterior"))
-                    st.markdown("**Insights Automáticos**")
-                    for nivel, msg in insights:
-                        st.markdown(f'<div class="alert alert-{nivel}">{msg}</div>', unsafe_allow_html=True)
-
-                    # Performance por usina
-                    por_usina = ind.get("por_usina", [])
-                    if por_usina:
-                        st.markdown("**Performance por Usina**")
-                        df_pu = pd.DataFrame(por_usina)
-                        if len(df_pu.columns) >= 7:
-                            df_pu.columns = ["Usina","Fat. Bruto","% Sunne","Tar. Banc.","Fat. Líquido","Conta Energia","Marketplace"]
-                        st.dataframe(df_pu, use_container_width=True, hide_index=True)
-
-                    # Indicadores avançados
-                    with st.expander("🔢 Indicadores Detalhados"):
-                        col_a, col_b = st.columns(2)
-                        col_a.metric("Média Tarifa Compensável",
-                                     f"R$ {ind.get('media_tarifa_compensavel',0):.6f}")
-                        col_a.metric("Tarifa Retorno Estimada",
-                                     f"R$ {ind.get('tarifa_retorno',0):.6f}")
-                        col_b.metric("Inadimplência (R$)",
-                                     f"R$ {ind.get('inadimplencia_valor',0):,.2f}")
-                        col_b.metric("Total Faturado (Extrato)",
-                                     f"R$ {ind.get('total_faturado',0):,.2f}")
-
-                    # Export
-                    st.markdown("**Exportar**")
-                    exp1, exp2 = st.columns(2)
-                    rows_exp = [
-                        {"Indicador":"Faturamento Bruto",       "Valor":ind.get("faturamento_bruto",0)},
-                        {"Indicador":"Faturamento Líquido",     "Valor":ind.get("faturamento_liquido",0)},
-                        {"Indicador":"% Sunne",                 "Valor":ind.get("percentual_sunne",0)},
-                        {"Indicador":"Tarifas Bancárias",       "Valor":ind.get("tarifas_bancarias",0)},
-                        {"Indicador":"Créditos Utilizados kWh", "Valor":ind.get("creditos_utilizados",0)},
-                        {"Indicador":"Eficiência Rateio %",     "Valor":ind.get("eficiencia_rateio",0)},
-                        {"Indicador":"Média Tarifa Comp.",      "Valor":ind.get("media_tarifa_compensavel",0)},
-                        {"Indicador":"Inadimplência R$",        "Valor":ind.get("inadimplencia_valor",0)},
-                        {"Indicador":"Inadimplência %",         "Valor":ind.get("pct_inadimplencia",0)},
-                        {"Indicador":"Tarifa Retorno",          "Valor":ind.get("tarifa_retorno",0)},
-                        {"Indicador":"Retorno Bruto Estimado",  "Valor":ind.get("retorno_bruto_estimado",0)},
-                    ]
-                    df_exp = pd.DataFrame(rows_exp)
-                    buf = io.BytesIO()
-                    with pd.ExcelWriter(buf, engine='openpyxl') as w:
-                        df_exp.to_excel(w, index=False, sheet_name="Indicadores")
-                        if por_usina:
-                            df_pu2 = pd.DataFrame(por_usina)
-                            if len(df_pu2.columns) >= 7:
-                                df_pu2.columns = ["Usina","Fat. Bruto","% Sunne","Tar. Banc.","Fat. Líquido","Conta Energia","Marketplace"]
-                            df_pu2.to_excel(w, index=False, sheet_name="Por Usina")
-                    exp1.download_button(
-                        "📥 Exportar Excel (Indicadores)",
-                        buf.getvalue(),
-                        f"bi_{ger_sel}_{res_comp.replace('/','-')}.xlsx",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    )
-
-    # ══ HISTÓRICO ══
-    with tab_historico:
-        st.markdown("#### Histórico de Análises por Gerador")
-
-        if not hist_analises:
-            st.info("Nenhuma análise processada ainda. Acesse a aba 'Importar & Calcular'.")
+            st.info("Cadastre geradores primeiro.")
             return
 
-        # Filtro de gerador
-        ger_hist_opts = []
-        for ch in hist_analises.keys():
-            ger_part = ch.split("||")[0] if "||" in ch else ch
-            if ger_part not in ger_hist_opts:
-                ger_hist_opts.append(ger_part)
+        ger_sel  = col_ger.selectbox("Gerador", nomes_ger, key="bi_ger_sel")
+        comp_sel = col_comp.text_input("Competência (MM/AAAA)",
+                                       value=datetime.now().strftime("%m/%Y"), key="bi_comp")
+        enquad   = col_enq.selectbox("Enquadramento", list(TARIFAS_BASE.keys()), key="bi_enq",
+                                     help="GD1=0.8182 / GD2=0.64788")
+        pct_desc = col_desc.number_input("% Desconto Gerador", 0.0, 1.0, 0.20, 0.01,
+                                         format="%.2f", key="bi_desc")
+        pct_taxa = col_taxa.number_input("% Taxa Admin Sunne", 0.0, 1.0, 0.07, 0.01,
+                                         format="%.2f", key="bi_taxa")
 
-        ger_hist_sel = st.selectbox("Gerador", sorted(ger_hist_opts), key="hist_ger_sel")
+        tarifa_b = TARIFAS_BASE[enquad]
+        tarifa_r = tarifa_b * (1 - pct_desc) * (1 - pct_taxa)
+        st.caption(f"🔢 Tarifa Base {enquad}: R$ {tarifa_b:.5f} → Tarifa Retorno: **R$ {tarifa_r:.5f}**/kWh")
 
-        chaves_ger = [ch for ch in hist_analises.keys()
-                      if (ch.split("||")[0] if "||" in ch else ch) == ger_hist_sel]
+        # ── Múltiplos relatórios ──────────────────────────────────────────────
+        st.markdown("#### Relatórios de Medição por Modelo de Negócio")
+        st.caption("Suba até 3 relatórios — um por modelo de contrato.")
 
-        if not chaves_ger:
-            st.info(f"Nenhuma análise para {ger_hist_sel}."); return
+        medicao_uploads = {}
+        for i in range(3):
+            mc1, mc2 = st.columns([2, 5])
+            modelo_esc = mc1.selectbox(
+                f"Modelo #{i+1}", ["— não usar —"] + MODELOS_NEGOCIO,
+                index=i+1 if i < len(MODELOS_NEGOCIO) else 0, key=f"bi_modelo_{i}")
+            if modelo_esc != "— não usar —":
+                arq = mc2.file_uploader(f"📋 Relatório {modelo_esc}",
+                                        type=["xlsx","xls"], key=f"bi_med_{i}")
+                if arq:
+                    medicao_uploads[modelo_esc] = arq
 
-        # Lista todas as competências deste gerador
-        todas_comps = []
-        for ch in chaves_ger:
-            for comp in hist_analises[ch].keys():
-                todas_comps.append((ch, comp, hist_analises[ch][comp]))
+        st.markdown("#### Extrato Detalhado *(opcional)*")
+        f_extrato = st.file_uploader("📄 Extrato Detalhado (xlsx/csv)",
+                                     type=["xlsx","xls","csv"], key="bi_extrato")
 
-        todas_comps.sort(key=lambda x: comp_sort_key(x[1]), reverse=True)
-
-        st.markdown(f"**{len(todas_comps)} competência(s) analisada(s)**")
-
-        for chave, comp, dados in todas_comps:
-            ind = dados.get("indicadores", {})
-            fat = ind.get("faturamento_bruto", 0.0)
-            inad = ind.get("pct_inadimplencia", 0.0)
-            efic = ind.get("eficiencia_rateio", 0.0)
-
-            col_info, col_kpis, col_btn = st.columns([2, 5, 1])
-            col_info.markdown(f"**{comp}**")
-            col_info.caption(f"Processado: {dados.get('processado_em','—')}")
-
-            with col_kpis:
-                k1, k2, k3 = st.columns(3)
-                k1.markdown(
-                    f'<div class="kpi-box" style="padding:.6rem .8rem">'
-                    f'<div class="kpi-value" style="font-size:1.1rem">R$ {fat:,.0f}</div>'
-                    f'<div class="kpi-label">Fat. Bruto</div></div>', unsafe_allow_html=True)
-                cor_inad = "#C41230" if inad > 10 else ("#7A5010" if inad > 5 else "#0B7A5F")
-                k2.markdown(
-                    f'<div class="kpi-box" style="padding:.6rem .8rem">'
-                    f'<div class="kpi-value" style="font-size:1.1rem;color:{cor_inad}">{inad:.1f}%</div>'
-                    f'<div class="kpi-label">Inadimplência</div></div>', unsafe_allow_html=True)
-                k3.markdown(
-                    f'<div class="kpi-box" style="padding:.6rem .8rem">'
-                    f'<div class="kpi-value" style="font-size:1.1rem">{efic:.1f}%</div>'
-                    f'<div class="kpi-label">Eficiência</div></div>', unsafe_allow_html=True)
-
-            if col_btn.button("🔍 Ver", key=f"hist_ver_{chave}_{comp}"):
-                dialog_bi_dashboard(chave, comp)
-
-            st.markdown("<hr style='margin:8px 0;border:none;border-top:1px solid rgba(51,0,26,.06)'>",
+        chave     = f"{ger_sel}||{comp_sel}"
+        ja_existe = chave in hist_analises and comp_sel in hist_analises.get(chave, {})
+        if ja_existe:
+            st.markdown('<div class="alert alert-b">📂 Análise já processada. Carregada do histórico.</div>',
                         unsafe_allow_html=True)
 
-        # Análise de tendência consolidada
+        btn_calc = st.button("⚡ Calcular Indicadores", type="primary", key="btn_bi_calc",
+                             disabled=(not medicao_uploads and not ja_existe))
+
+        if btn_calc:
+            with st.spinner("Processando…"):
+                try:
+                    gerador_cfg = {"pct_desconto_gerador": float(pct_desc),
+                                   "pct_taxa_admin": float(pct_taxa), "enquadramento": enquad}
+                    medicoes_parsed = {}
+                    if medicao_uploads:
+                        for modelo, arq in medicao_uploads.items():
+                            medicoes_parsed[modelo] = parse_relatorio_medicao(arq.read())
+                    elif ja_existe:
+                        medicoes_parsed = hist_analises[chave][comp_sel].get("medicoes_parsed", {})
+
+                    extrato_df = None
+                    if f_extrato:
+                        extrato_df = load_planilha(f_extrato)
+                        if extrato_df is None or extrato_df.empty: extrato_df = None
+
+                    ind = _calcular_multi_modelo(medicoes_parsed, extrato_df, gerador_cfg)
+
+                    ind_anterior = None
+                    try:
+                        mm, aa = comp_sel.split("/")
+                        comp_ant = f"{int(mm)-1:02d}/{aa}" if int(mm) > 1 else f"12/{int(aa)-1}"
+                        if chave in hist_analises and comp_ant in hist_analises[chave]:
+                            ind_anterior = hist_analises[chave][comp_ant].get("indicadores")
+                    except: pass
+                    ind["indicadores_anterior"] = ind_anterior
+
+                    hist_analises.setdefault(chave, {})
+                    hist_analises[chave][comp_sel] = {
+                        "gerador": ger_sel, "competencia": comp_sel,
+                        "processado_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "gerador_cfg": gerador_cfg, "medicoes_parsed": medicoes_parsed,
+                        "modelos": list(medicoes_parsed.keys()), "indicadores": ind,
+                    }
+                    save_analises(hist_analises)
+                    st.session_state["bi_resultado_chave"] = chave
+                    st.session_state["bi_resultado_comp"]  = comp_sel
+                    st.success("✅ Análise calculada e salva!"); st.rerun()
+                except Exception as e:
+                    st.error(f"Erro: {e}"); st.code(traceback.format_exc())
+
+        # ── Exibir resultado ──────────────────────────────────────────────────
+        res_chave = st.session_state.get("bi_resultado_chave")
+        res_comp  = st.session_state.get("bi_resultado_comp")
+        if not (res_chave and res_comp and res_chave in hist_analises): return
+        dados_comp = hist_analises[res_chave].get(res_comp)
+        if not dados_comp: return
+        ind     = dados_comp.get("indicadores", {})
+        ind_ant = ind.get("indicadores_anterior") or {}
+
+        st.markdown('<div class="sdiv"></div>', unsafe_allow_html=True)
+        st.markdown(f"### Resultado · {dados_comp['gerador']} · {res_comp}")
+        st.caption(f"Processado em: {dados_comp.get('processado_em','—')} · "
+                   f"Modelos: {', '.join(dados_comp.get('modelos',[]))}")
+
+        def _delta_pct(atual, ant, campo):
+            a = ant.get(campo, 0)
+            return ((atual - a) / a * 100) if a > 0 else None
+
+        k1,k2,k3,k4,k5,k6 = st.columns(6)
+        _kpi(k1,"Faturamento Bruto",  ind.get("faturamento_bruto",0),   "R$ {:,.2f}",
+             _delta_pct(ind.get("faturamento_bruto",0), ind_ant, "faturamento_bruto"))
+        _kpi(k2,"Faturamento Líquido",ind.get("faturamento_liquido",0), "R$ {:,.2f}",
+             _delta_pct(ind.get("faturamento_liquido",0), ind_ant, "faturamento_liquido"))
+        _kpi(k3,"Créditos Utilizados",ind.get("creditos_utilizados",0), "{:,.1f} kWh")
+        _kpi(k4,"Eficiência Rateio",  ind.get("eficiencia_rateio",0),   "{:.1f}%")
+        _kpi(k5,"Inadimplência",       ind.get("pct_inadimplencia",0),   "{:.1f}%",
+             _delta_pct(ind.get("pct_inadimplencia",0), ind_ant, "pct_inadimplencia"))
+        _kpi(k6,"Retorno Estimado",    ind.get("retorno_bruto_estimado",0),"R$ {:,.2f}")
+
+        st.write("")
+        col_ded, col_ins = st.columns([2, 3])
+        with col_ded:
+            _render_deducoes(ind)
+        with col_ins:
+            st.markdown("**🚨 Insights Automáticos**")
+            for nivel, msg in gerar_insights(ind, ind_ant if ind_ant else None):
+                st.markdown(f'<div class="alert alert-{nivel}">{msg}</div>', unsafe_allow_html=True)
+            st.write("")
+            gcfg = dados_comp.get("gerador_cfg",{})
+            enq  = gcfg.get("enquadramento","GD1")
+            tb   = TARIFAS_BASE.get(enq, 0.8182)
+            tr   = tb*(1-gcfg.get("pct_desconto_gerador",0))*(1-gcfg.get("pct_taxa_admin",0))
+            st.markdown("**📐 Composição da Tarifa**")
+            st.markdown(
+                f'<div class="deducao-row"><span class="deducao-label">Enquadramento</span><span style="font-weight:600">{enq}</span></div>'
+                f'<div class="deducao-row"><span class="deducao-label">Tarifa Base</span><span style="font-weight:600">R$ {tb:.5f}</span></div>'
+                f'<div class="deducao-row"><span class="deducao-label">(−) Desconto Gerador</span><span class="deducao-val-neg">{gcfg.get("pct_desconto_gerador",0)*100:.1f}%</span></div>'
+                f'<div class="deducao-row"><span class="deducao-label">(−) Taxa Admin Sunne</span><span class="deducao-val-neg">{gcfg.get("pct_taxa_admin",0)*100:.1f}%</span></div>'
+                f'<div class="deducao-row"><span class="deducao-label">= Tarifa Retorno</span><span class="deducao-val-pos">R$ {tr:.5f}/kWh</span></div>',
+                unsafe_allow_html=True)
+
+        por_usina = ind.get("por_usina",[])
+        if por_usina:
+            st.markdown("**Performance por Usina**")
+            df_pu = pd.DataFrame(por_usina)
+            if len(df_pu.columns) >= 7:
+                df_pu.columns = ["Usina","Fat. Bruto","% Sunne","Tar. Banc.",
+                                 "Fat. Líquido","Conta Energia","Marketplace"]
+            st.dataframe(df_pu, use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+        exp_c1, _ = st.columns([2,4])
+        if exp_c1.button("📥 Exportar Excel (Investidor)", key="btn_exp_bi"):
+            buf = io.BytesIO()
+            rows_kpi = [
+                {"Indicador":"Faturamento Bruto",        "Valor":ind.get("faturamento_bruto",0)},
+                {"Indicador":"Faturamento Líquido",      "Valor":ind.get("faturamento_liquido",0)},
+                {"Indicador":"Deducao % Sunne",          "Valor":ind.get("percentual_sunne",0)},
+                {"Indicador":"Tarifas Bancárias",        "Valor":ind.get("tarifas_bancarias",0)},
+                {"Indicador":"Outros",                   "Valor":ind.get("outros",0)},
+                {"Indicador":"Créditos Utilizados kWh",  "Valor":ind.get("creditos_utilizados",0)},
+                {"Indicador":"Eficiência Rateio %",      "Valor":ind.get("eficiencia_rateio",0)},
+                {"Indicador":"Inadimplência R$",         "Valor":ind.get("inadimplencia_valor",0)},
+                {"Indicador":"Inadimplência %",          "Valor":ind.get("pct_inadimplencia",0)},
+                {"Indicador":"Tarifa Retorno R$/kWh",    "Valor":ind.get("tarifa_retorno",0)},
+                {"Indicador":"Retorno Bruto Estimado",   "Valor":ind.get("retorno_bruto_estimado",0)},
+            ]
+            rows_mod = [{"Modelo":m,"Fat. Bruto":md.get("faturamento_bruto",0),
+                         "% Sunne":md.get("percentual_sunne",0),
+                         "Tar. Banc.":md.get("tarifas_bancarias",0),
+                         "Fat. Líquido":md.get("faturamento_liquido",0)}
+                        for m, md in ind.get("por_modelo",{}).items()]
+            with pd.ExcelWriter(buf, engine='openpyxl') as w:
+                pd.DataFrame(rows_kpi).to_excel(w, index=False, sheet_name="Indicadores")
+                if rows_mod: pd.DataFrame(rows_mod).to_excel(w, index=False, sheet_name="Por Modelo")
+                if por_usina: pd.DataFrame(por_usina).to_excel(w, index=False, sheet_name="Por Usina")
+            st.download_button("⬇ Baixar Excel", buf.getvalue(),
+                f"bi_{ger_sel}_{res_comp.replace('/','-')}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="dl_bi_excel")
+
+    # ══ HISTÓRICO ══════════════════════════════════════════════════════════════
+    with tab_historico:
+        st.markdown("#### Histórico de Análises por Gerador")
+        if not hist_analises:
+            st.info("Nenhuma análise processada ainda."); return
+
+        ger_hist_opts = sorted({(ch.split("||")[0] if "||" in ch else ch) for ch in hist_analises})
+        ger_hist_sel  = st.selectbox("Gerador", ger_hist_opts, key="hist_ger_sel")
+        chaves_ger    = [ch for ch in hist_analises
+                         if (ch.split("||")[0] if "||" in ch else ch) == ger_hist_sel]
+        if not chaves_ger: st.info(f"Nenhuma análise para {ger_hist_sel}."); return
+
+        todas_comps = [(ch, comp, dados)
+                       for ch in chaves_ger
+                       for comp, dados in hist_analises[ch].items()]
+        todas_comps.sort(key=lambda x: comp_sort_key(x[1]), reverse=True)
+        st.markdown(f"**{len(todas_comps)} competência(s)**")
+
+        for chave, comp, dados in todas_comps:
+            ind  = dados.get("indicadores",{})
+            mods = dados.get("modelos",[])
+            col_info, col_kpis, col_btn = st.columns([2,5,1])
+            col_info.markdown(f"**{comp}**")
+            if mods: col_info.caption(" · ".join(mods))
+            col_info.caption(f"{dados.get('processado_em','—')}")
+            with col_kpis:
+                kk1,kk2,kk3,kk4 = st.columns(4)
+                for kc,klbl,kval,kfmt in [
+                    (kk1,"Bruto",  ind.get("faturamento_bruto",0),   "R$ {:,.0f}"),
+                    (kk2,"Líquido",ind.get("faturamento_liquido",0), "R$ {:,.0f}"),
+                    (kk3,"Inadimp",ind.get("pct_inadimplencia",0),   "{:.1f}%"),
+                    (kk4,"Efic.",  ind.get("eficiencia_rateio",0),   "{:.1f}%"),
+                ]:
+                    kc.markdown(f'<div class="kpi-box" style="padding:.5rem .7rem">'
+                                f'<div class="kpi-value" style="font-size:.95rem">{kfmt.format(kval)}</div>'
+                                f'<div class="kpi-label">{klbl}</div></div>', unsafe_allow_html=True)
+            if col_btn.button("🔍", key=f"hist_ver_{chave}_{comp}"):
+                dialog_bi_dashboard(chave, comp)
+            st.markdown("<hr style='margin:6px 0;border:none;border-top:1px solid rgba(51,0,26,.06)'>",
+                        unsafe_allow_html=True)
+
         if len(todas_comps) >= 2:
             st.markdown("---")
             st.markdown("#### Tendência Consolidada")
-
             df_tend = pd.DataFrame([
-                {
-                    "Competência": comp,
-                    "Faturamento Bruto": dados.get("indicadores",{}).get("faturamento_bruto",0),
-                    "Inadimplência %":   dados.get("indicadores",{}).get("pct_inadimplencia",0),
-                    "Eficiência %":      dados.get("indicadores",{}).get("eficiencia_rateio",0),
-                    "Retorno Estimado":  dados.get("indicadores",{}).get("retorno_bruto_estimado",0),
-                }
-                for _, comp, dados in sorted(todas_comps, key=lambda x: comp_sort_key(x[1]))
+                {"Competência":comp,
+                 "Fat. Bruto":d.get("indicadores",{}).get("faturamento_bruto",0),
+                 "Fat. Líquido":d.get("indicadores",{}).get("faturamento_liquido",0),
+                 "Inadimpl. %":d.get("indicadores",{}).get("pct_inadimplencia",0),
+                 "Eficiência %":d.get("indicadores",{}).get("eficiencia_rateio",0),
+                 "Retorno Est.":d.get("indicadores",{}).get("retorno_bruto_estimado",0),
+                 "Modelos":", ".join(d.get("modelos",[]))}
+                for _,comp,d in sorted(todas_comps, key=lambda x: comp_sort_key(x[1]))
             ])
-
             st.dataframe(df_tend, use_container_width=True, hide_index=True)
-
             buf2 = io.BytesIO()
             with pd.ExcelWriter(buf2, engine='openpyxl') as w:
                 df_tend.to_excel(w, index=False, sheet_name="Tendência")
-            st.download_button(
-                "📥 Exportar Tendência Excel",
-                buf2.getvalue(),
+            st.download_button("📥 Exportar Tendência Excel", buf2.getvalue(),
                 f"tendencia_{ger_hist_sel}.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+def page_automacao():
+    st.title("🤖 Automação · Captura de Faturas")
+
+    # ── Aviso se Selenium não disponível ─────────────────────────────────────
+    if not ROBOT_DISPONIVEL:
+        st.error("⚠️ Módulo de automação não disponível.")
+        with st.expander("Detalhes do erro de importação"):
+            st.code(_robot_err_msg if "ROBOT_DISPONIVEL" in dir() else "robot_captura.py não encontrado")
+        st.markdown("**Para ativar, adicione ao seu repositório:**")
+        col1, col2 = st.columns(2)
+        col1.markdown("**`packages.txt`**")
+        col1.code("chromium-driver\nchromium", language="text")
+        col2.markdown("**`requirements.txt`**")
+        col2.code("selenium>=4.18.0\nwebdriver-manager>=4.0.1\npdfplumber>=0.11.0", language="text")
+        st.markdown("**`.streamlit/secrets.toml`**")
+        st.code('[sunne_portal]\nemail    = "milena.braga@sunne.com.br"\npassword = "Milena@2025"', language="toml")
+        return
+
+    usinas   = load_usinas()
+    sched    = _robot.load_schedule()
+    log_hist = _robot.load_log()
+
+    # ── TABS principais ───────────────────────────────────────────────────────
+    tab_painel, tab_config, tab_log, tab_template = st.tabs([
+        "🚀 Painel de Controle", "⏰ Agendamento", "📋 Log de Execuções", "🧠 Ensinar Robô"
+    ])
+
+    # ══════════════════════════════════════════════════════
+    # TAB 1 – PAINEL DE CONTROLE
+    # ══════════════════════════════════════════════════════
+    with tab_painel:
+
+        # KPIs rápidos
+        total_ucs = len(usinas)
+        ger_hoje  = [e for e in log_hist if e.get("ts","").startswith(datetime.now().strftime("%d/%m/%Y"))]
+        baixados  = len([e for e in ger_hoje if e.get("status") == "baixado"])
+        nd        = len([e for e in ger_hoje if e.get("status") == "não_disponível"])
+        erros     = len([e for e in ger_hoje if e.get("status") in ("erro","erro_geral")])
+        pendentes = len([e for e in ger_hoje if e.get("status") == "precisa_template"])
+
+        k1, k2, k3, k4, k5 = st.columns(5)
+        for col, lbl, val, cor in [
+            (k1, "UCs Cadastradas",  total_ucs,   "#33001A"),
+            (k2, "Baixadas Hoje",    baixados,    "#0B7A5F"),
+            (k3, "Não Disponíveis",  nd,          "#7A5010"),
+            (k4, "Precisa Template", pendentes,   "#A84010"),
+            (k5, "Erros Hoje",       erros,       "#C41230"),
+        ]:
+            col.markdown(
+                f'<div class="kpi-box"><div class="kpi-value" style="color:{cor}">{val}</div>'
+                f'<div class="kpi-label">{lbl}</div></div>', unsafe_allow_html=True)
+
+        st.write("")
+
+        # Status agendamento
+        auto_on = sched.get("auto", False)
+        hora    = sched.get("hora", "08:00")
+        ultima  = sched.get("ultima_execucao", "—")
+        if auto_on:
+            st.markdown(
+                f'<div class="alert alert-g">⏰ <b>Agendamento ativo</b> — roda todos os dias às <b>{hora}</b> '
+                f'· Última execução: <b>{ultima}</b></div>', unsafe_allow_html=True)
+        else:
+            st.markdown(
+                '<div class="alert alert-y">⏸ Agendamento desativado. '
+                'Configure na aba <b>Agendamento</b>.</div>', unsafe_allow_html=True)
+
+        st.write("")
+        st.markdown("#### Configurar Varredura")
+
+        c1, c2 = st.columns([2, 3])
+        mes_atual = _robot.MESES_PT[datetime.now().month]
+        comp_sel  = c1.selectbox("Competência", list(_robot.MESES_PT.values()),
+                                  index=list(_robot.MESES_PT.values()).index(mes_atual),
+                                  key="auto_comp")
+
+        ger_opts  = sorted({u.get("gerador","—") for u in usinas})
+        ger_filtro= c2.multiselect("Filtrar por Gerador (vazio = todos)", ger_opts, key="auto_ger")
+
+        ucs_alvo = []
+        if ger_filtro:
+            ucs_alvo = [u["uc"] for u in usinas if u.get("gerador","") in ger_filtro]
+            st.caption(f"🎯 {len(ucs_alvo)} UC(s) selecionada(s) dos geradores filtrados")
+        else:
+            st.caption(f"🎯 Todas as {total_ucs} UC(s) cadastradas serão varridas")
+
+        # ── Botão principal ───────────────────────────────────────────────────
+        rodando = st.session_state.get("robot_rodando", False)
+
+        btn_col, status_col = st.columns([2, 5])
+        iniciar = btn_col.button(
+            "🚀 Iniciar Varredura" if not rodando else "⏳ Executando…",
+            disabled=rodando, use_container_width=True, key="btn_iniciar_robot"
+        )
+
+        # Auto-trigger via agendamento
+        if st.session_state.pop("robot_auto_trigger", False):
+            iniciar = True
+
+        if iniciar and not rodando:
+            st.session_state["robot_rodando"] = True
+            st.session_state["robot_log_live"] = []
+            st.rerun()
+
+        # ── Execução (quando rodando=True) ────────────────────────────────────
+        if rodando:
+            st.markdown("---")
+            st.markdown("#### ⚡ Execução em Andamento")
+
+            prog_bar  = st.progress(0.0)
+            status_tx = st.empty()
+            log_table = st.empty()
+
+            log_live: list = st.session_state.get("robot_log_live", [])
+
+            def on_progress(pct, msg):
+                prog_bar.progress(min(pct, 1.0))
+                status_tx.markdown(
+                    f'<div class="alert alert-b">🔄 {msg}</div>', unsafe_allow_html=True)
+
+            def on_log(entry):
+                log_live.append(entry)
+                st.session_state["robot_log_live"] = log_live
+                _render_log_table(log_table, log_live)
+
+            try:
+                resultado = _robot.executar_varredura(
+                    progress_cb    = on_progress,
+                    log_cb         = on_log,
+                    competencia_mes= comp_sel,
+                    ucs_alvo       = ucs_alvo if ucs_alvo else None,
+                )
+                st.session_state["robot_ultimo_resultado"] = resultado
+            except Exception as ex:
+                st.error(f"Erro fatal na varredura: {ex}")
+                st.code(traceback.format_exc())
+            finally:
+                st.session_state["robot_rodando"] = False
+                prog_bar.progress(1.0)
+                status_tx.markdown(
+                    '<div class="alert alert-g">✅ Varredura finalizada!</div>',
+                    unsafe_allow_html=True)
+                st.rerun()
+
+        # ── Resultado da última varredura ─────────────────────────────────────
+        ultimo = st.session_state.get("robot_ultimo_resultado")
+        if ultimo:
+            st.markdown("---")
+            st.markdown("#### Resultado da Última Varredura")
+            _render_log_table(st, ultimo)
+            if st.button("🔄 Ir para Geração (atualizado)", key="btn_ver_geracao"):
+                st.session_state["page"] = "geracao"
+                st.rerun()
+
+    # ══════════════════════════════════════════════════════
+    # TAB 2 – AGENDAMENTO
+    # ══════════════════════════════════════════════════════
+    with tab_config:
+        st.markdown("#### ⏰ Agendamento Diário Automático")
+        st.caption("O robô verificará o horário a cada interação com o sistema. "
+                   "Para garantia em produção, considere um cron externo ou Streamlit Community Cloud com auto-refresh.")
+
+        with st.form("form_schedule"):
+            fc1, fc2 = st.columns(2)
+            hora_nova = fc1.text_input("Horário de execução (HH:MM)",
+                                       value=sched.get("hora","08:00"),
+                                       placeholder="08:00")
+            auto_nova = fc2.checkbox("Ativar execução automática diária",
+                                     value=sched.get("auto", False))
+
+            st.markdown("**Configurações de escopo**")
+            sc1, sc2 = st.columns(2)
+            comp_auto = sc1.selectbox("Competência padrão para varredura automática",
+                                      list(_robot.MESES_PT.values()),
+                                      index=list(_robot.MESES_PT.values()).index(
+                                          _robot.MESES_PT[datetime.now().month]))
+            _ = sc2.info("A varredura automática sempre usa todas as UCs cadastradas.")
+
+            salvar_sched = st.form_submit_button("💾 Salvar Configuração", use_container_width=True)
+
+        if salvar_sched:
+            import re
+            if not re.match(r"^\d{2}:\d{2}$", hora_nova.strip()):
+                st.error("Formato inválido. Use HH:MM (ex: 08:00).")
+            else:
+                sched["hora"]  = hora_nova.strip()
+                sched["auto"]  = auto_nova
+                sched["comp_auto"] = comp_auto
+                _robot.save_schedule(sched)
+                st.success(f"✅ Agendamento {'ativado' if auto_nova else 'desativado'} às {hora_nova}.")
+                st.rerun()
+
+        st.markdown("---")
+        st.markdown("**Credenciais do Portal** *(gerenciadas via `st.secrets`)*")
+        st.code("""# .streamlit/secrets.toml
+[sunne_portal]
+email    = "milena.braga@sunne.com.br"
+password = "Milena@2025"
+""", language="toml")
+        st.caption("No Streamlit Cloud: Settings → Secrets → cole o bloco acima.")
+
+        st.markdown("**Dependências necessárias**")
+        col_dep1, col_dep2 = st.columns(2)
+        col_dep1.markdown("**`packages.txt`**")
+        col_dep1.code("chromium-driver\nchromium", language="text")
+        col_dep2.markdown("**`requirements.txt`** *(adicionar)*")
+        col_dep2.code("selenium>=4.18.0\nwebdriver-manager>=4.0.1\npdfplumber>=0.11.0",
+                      language="text")
+
+    # ══════════════════════════════════════════════════════
+    # TAB 3 – LOG COMPLETO
+    # ══════════════════════════════════════════════════════
+    with tab_log:
+        st.markdown("#### 📋 Histórico de Execuções")
+
+        log_hist = _robot.load_log()  # recarrega
+        if not log_hist:
+            st.info("Nenhuma execução registrada ainda.")
+        else:
+            # Filtros
+            lc1, lc2, lc3 = st.columns(3)
+            status_opts = ["Todos"] + sorted({e.get("status","") for e in log_hist})
+            filt_status = lc1.selectbox("Status", status_opts, key="log_filt_status")
+            filt_uc     = lc2.text_input("Filtrar UC", placeholder="todos", key="log_filt_uc")
+            filt_comp   = lc3.text_input("Filtrar Competência", placeholder="ex: 04/2026", key="log_filt_comp")
+
+            filtrado = log_hist
+            if filt_status != "Todos":
+                filtrado = [e for e in filtrado if e.get("status") == filt_status]
+            if filt_uc.strip():
+                filtrado = [e for e in filtrado if filt_uc.strip() in str(e.get("uc",""))]
+            if filt_comp.strip():
+                filtrado = [e for e in filtrado if filt_comp.strip() in str(e.get("comp",""))]
+
+            st.caption(f"{len(filtrado)} de {len(log_hist)} registros")
+
+            df_log = pd.DataFrame(filtrado)
+            if not df_log.empty:
+                cols_show = [c for c in ["ts","uc","comp","status","injetada","saldo","obs"] if c in df_log.columns]
+                df_log = df_log[cols_show].copy()
+                df_log.columns = [{"ts":"Timestamp","uc":"UC","comp":"Competência",
+                                   "status":"Status","injetada":"Injetada (kWh)",
+                                   "saldo":"Saldo (kWh)","obs":"Observação"}.get(c,c)
+                                  for c in cols_show]
+
+                def _colorir_status(val):
+                    cores = {"baixado":"background:#EDFCF6;color:#0A5040",
+                             "não_disponível":"background:#FFFBEC;color:#6B4A00",
+                             "precisa_template":"background:#FFF3EC;color:#A84010",
+                             "erro":"background:#FFF0F3;color:#8B1530",
+                             "erro_geral":"background:#FFF0F3;color:#8B1530"}
+                    return cores.get(str(val), "")
+
+                st.dataframe(
+                    df_log.style.applymap(_colorir_status, subset=["Status"]
+                                          if "Status" in df_log.columns else []),
+                    use_container_width=True, hide_index=True)
+
+                st.download_button(
+                    "📥 Exportar Log CSV",
+                    df_log.to_csv(index=False, sep=";").encode("utf-8-sig"),
+                    f"log_captura_{datetime.now().strftime('%Y%m%d')}.csv",
+                    "text/csv", key="dl_log_csv")
+
+            # Pendentes de template
+            pendentes_log = [e for e in log_hist if e.get("status") == "precisa_template"]
+            if pendentes_log:
+                st.markdown("---")
+                st.markdown(
+                    f'<div class="alert alert-y">⚠️ <b>{len(pendentes_log)}</b> UC(s) com fatura baixada mas layout desconhecido. '
+                    f'Acesse a aba <b>🧠 Ensinar Robô</b> para treinar a extração.</div>',
+                    unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════
+    # TAB 4 – ENSINAR ROBÔ (template learning)
+    # ══════════════════════════════════════════════════════
+    with tab_template:
+        st.markdown("#### 🧠 Ensinar Robô · Layout Desconhecido")
+        st.markdown(
+            "Quando o robô baixa uma fatura mas não consegue extrair os dados automaticamente, "
+            "você pode subir o PDF manualmente e informar os valores corretos. "
+            "O sistema aprenderá o layout para extrações futuras.")
+
+        st.markdown('<div class="alert alert-b">💡 O aprendizado é salvo por <b>concessionária</b>. '
+                    'Uma vez ensinado, todas as UCs da mesma concessionária serão extraídas automaticamente.</div>',
+                    unsafe_allow_html=True)
+
+        # Mostra PDFs pendentes salvos pelo robô
+        pdfs_pendentes = []
+        for f in os.listdir("database") if os.path.exists("database") else []:
+            if f.startswith("pdf_pendente_") and f.endswith(".pdf"):
+                uc_pend = f.replace("pdf_pendente_","").replace(".pdf","")
+                pdfs_pendentes.append(uc_pend)
+
+        if pdfs_pendentes:
+            st.markdown(f"**📂 {len(pdfs_pendentes)} PDF(s) pendente(s) de treinamento:**")
+            uc_treinar = st.selectbox("Selecionar UC pendente", pdfs_pendentes, key="uc_treinar_sel")
+            pdf_path   = f"database/pdf_pendente_{uc_treinar}.pdf"
+
+            if os.path.exists(pdf_path):
+                with open(pdf_path, "rb") as fp:
+                    pdf_bytes_pend = fp.read()
+                st.download_button(f"📄 Visualizar fatura UC {uc_treinar}",
+                                   pdf_bytes_pend, f"fatura_{uc_treinar}.pdf",
+                                   "application/pdf", key="dl_pend_pdf")
+
+                st.markdown("**Informe os valores corretos desta fatura:**")
+                tp1, tp2, tp3, tp4 = st.columns(4)
+                conc_treinar = tp1.text_input("Concessionária", placeholder="ex: ENEL CE", key="conc_treinar")
+                inj_treinar  = tp2.number_input("Energia Injetada (kWh)", min_value=0.0, step=0.1, key="inj_treinar")
+                sal_treinar  = tp3.number_input("Saldo kWh", min_value=0.0, step=0.1, key="sal_treinar")
+                con_treinar  = tp4.number_input("Consumo kWh", min_value=0.0, step=0.1, key="con_treinar")
+
+                if st.button("✅ Confirmar e Treinar", key="btn_treinar_pend", use_container_width=True):
+                    if not conc_treinar.strip():
+                        st.warning("Informe a concessionária.")
+                    else:
+                        template = _robot.aprender_template_de_pdf(
+                            pdf_bytes_pend, uc_treinar, conc_treinar.strip(),
+                            inj_treinar, sal_treinar, con_treinar)
+                        # Salva geração já com os valores informados
+                        _robot.salvar_geracao_hub(uc_treinar, {
+                            "energia_injetada": inj_treinar,
+                            "saldo":            sal_treinar,
+                            "consumo":          con_treinar,
+                            "concessionaria":   conc_treinar,
+                            "confianca":        1.0,
+                        }, datetime.now().strftime("%m/%Y"))
+                        # Remove PDF pendente
+                        try: os.remove(pdf_path)
+                        except Exception: pass
+                        st.success(f"✅ Template salvo para '{conc_treinar}' · Geração registrada no Hub!")
+                        st.toast("🧠 Robô treinado com sucesso!", icon="🎉")
+                        st.rerun()
+            st.markdown("---")
+
+        # Upload manual de nova fatura para ensinar
+        st.markdown("**Ou suba uma fatura manualmente para treinar:**")
+        mu1, mu2 = st.columns(2)
+        uc_manual    = mu1.text_input("UC da fatura", key="uc_manual_template")
+        conc_manual  = mu2.text_input("Concessionária", placeholder="ex: EQUATORIAL PI", key="conc_manual_template")
+
+        pdf_manual = st.file_uploader("📎 Fatura PDF", type=["pdf"], key="pdf_manual_upload")
+
+        if pdf_manual:
+            # Preview texto extraído
+            try:
+                import pdfplumber as _pp
+                with _pp.open(io.BytesIO(pdf_manual.read())) as _pdf:
+                    texto_preview = "\n".join(p.extract_text() or "" for p in _pdf.pages[:2])
+                pdf_manual.seek(0)
+                with st.expander("👁 Texto extraído do PDF (primeiras 2 páginas)"):
+                    st.text(texto_preview[:2000])
+            except Exception:
+                pass
+
+            mv1, mv2, mv3 = st.columns(3)
+            inj_m = mv1.number_input("Energia Injetada (kWh)", min_value=0.0, step=0.1, key="inj_m")
+            sal_m = mv2.number_input("Saldo kWh",              min_value=0.0, step=0.1, key="sal_m")
+            con_m = mv3.number_input("Consumo kWh",            min_value=0.0, step=0.1, key="con_m")
+
+            if st.button("🧠 Treinar com este PDF", key="btn_treinar_manual", use_container_width=True):
+                if not uc_manual.strip() or not conc_manual.strip():
+                    st.warning("Informe UC e Concessionária.")
+                else:
+                    pdf_bytes_m = pdf_manual.read() if pdf_manual.tell() == 0 else None
+                    if not pdf_bytes_m:
+                        pdf_manual.seek(0); pdf_bytes_m = pdf_manual.read()
+                    template = _robot.aprender_template_de_pdf(
+                        pdf_bytes_m, uc_manual.strip(), conc_manual.strip(),
+                        inj_m, sal_m, con_m)
+                    _robot.salvar_geracao_hub(uc_manual.strip(), {
+                        "energia_injetada": inj_m,
+                        "saldo":            sal_m,
+                        "consumo":          con_m,
+                        "concessionaria":   conc_manual.strip(),
+                        "confianca":        1.0,
+                    }, datetime.now().strftime("%m/%Y"))
+                    st.success(f"✅ Template '{conc_manual}' aprendido · UC {uc_manual} salva em Geração!")
+                    st.toast("🧠 Treinamento concluído!", icon="✅")
+
+        # Templates já salvos
+        templates = _robot.load_templates()
+        if templates:
+            st.markdown("---")
+            st.markdown(f"**📚 {len(templates)} template(s) aprendido(s):**")
+            rows_t = []
+            for k, v in templates.items():
+                rows_t.append({
+                    "Chave": k,
+                    "Concessionária": v.get("concessionaria","—"),
+                    "UC": v.get("uc","—"),
+                    "Aprendido em": v.get("aprendido_em","—"),
+                    "Manual": "✅" if v.get("manual") else "🤖",
+                    "Tem bbox": "✅" if v.get("bbox_injetada") else "❌",
+                })
+            st.dataframe(pd.DataFrame(rows_t), use_container_width=True, hide_index=True)
+
+            del_key = st.selectbox("Remover template:", ["— selecione —"] + list(templates.keys()),
+                                   key="del_template_sel")
+            if del_key != "— selecione —" and st.button("🗑 Remover", key="btn_del_tpl"):
+                del templates[del_key]
+                _robot.save_templates(templates)
+                st.success(f"Template '{del_key}' removido.")
+                st.rerun()
+
+
+# ─── Helper interno: renderiza tabela de log ──────────────────────────────────
+def _render_log_table(container, entries: list):
+    if not entries:
+        return
+    df = pd.DataFrame(entries)
+    cols_show = [c for c in ["ts","uc","status","injetada","saldo","obs"] if c in df.columns]
+    df = df[cols_show].copy()
+    df.columns = [{"ts":"Timestamp","uc":"UC","status":"Status",
+                   "injetada":"Injetada kWh","saldo":"Saldo kWh","obs":"Obs"}.get(c,c)
+                  for c in cols_show]
+
+    STATUS_ICONS = {
+        "baixado":          "✅ baixado",
+        "não_disponível":   "⬜ não disponível",
+        "precisa_template": "⚠️ precisa template",
+        "erro":             "❌ erro",
+        "erro_geral":       "❌ erro geral",
+    }
+    if "Status" in df.columns:
+        df["Status"] = df["Status"].apply(lambda v: STATUS_ICONS.get(str(v), str(v)))
+
+    container.dataframe(df, use_container_width=True, hide_index=True)
 
 
 # ═══════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════
+
+def page_integracoes():
+    st.title("🔗 Integrações Google")
+    st.markdown("Conecte sua conta Google para enviar e-mails pelo Hub e visualizar reuniões no Dashboard.")
+
+    goog = load_google_tokens()
+
+    if goog.get("access_token"):
+        st.markdown('<div class="alert alert-g">✅ Google conectado.</div>', unsafe_allow_html=True)
+        st.caption("Permissões ativas: Gmail (envio) · Google Calendar (leitura)")
+        if st.button("🔌 Desconectar Google"):
+            save_google_tokens({})
+            st.success("Desconectado."); st.rerun()
+    else:
+        st.markdown('<div class="alert alert-y">⚠️ Google não conectado.</div>', unsafe_allow_html=True)
+        st.markdown("**Passo 1** — Configure seus secrets no Streamlit Cloud:")
+        st.code("""# .streamlit/secrets.toml
+[google]
+client_id     = "SEU_CLIENT_ID.apps.googleusercontent.com"
+client_secret = "SEU_CLIENT_SECRET"
+""", language="toml")
+        st.markdown("**Passo 2** — No Google Cloud Console, ative as APIs: Gmail API e Google Calendar API, e adicione `https://performance-sunne.streamlit.app/` como redirect URI.")
+        st.markdown("**Passo 3** — Clique no botão abaixo para autorizar:")
+
+        try:
+            auth_url = _google_auth_url()
+            st.markdown(
+                f'<a href="{auth_url}" target="_self" style="display:inline-block;'
+                f'background:#F36E21;color:white;padding:.6rem 1.4rem;border-radius:8px;'
+                f'font-size:14px;font-weight:500;text-decoration:none;margin-top:.5rem">'
+                f'🔗 Conectar Google</a>',
+                unsafe_allow_html=True)
+        except Exception:
+            st.warning("Configure `client_id` em `.streamlit/secrets.toml` antes de conectar.")
+
+    st.divider()
+    st.markdown("**Funcionalidades desbloqueadas após conexão:**")
+    st.markdown("- 📧 Envio de e-mails para geradores diretamente do card de atividade\n"
+                "- 📅 Visualização de reuniões do Google Calendar no Dashboard\n"
+                "- 📌 Criação de eventos no Calendar a partir de atividades programadas")
+
 
 def main():
     st.markdown(SUNNE_CSS, unsafe_allow_html=True)
@@ -1767,19 +2744,28 @@ def main():
             st.markdown("</div>", unsafe_allow_html=True)
         return
 
+    # ── Auto-agendamento 08h ──────────────────────────────────────────────────
+    if ROBOT_DISPONIVEL and _robot.verificar_agendamento():
+        if not st.session_state.get("robot_rodando", False):
+            st.session_state["robot_rodando"]      = True
+            st.session_state["robot_auto_trigger"] = True
+            st.session_state["page"]               = "automacao"
+
     render_sidebar()
 
     page  = st.session_state.get("page","dash")
     pages = {
-        "dash":        page_dashboard,
-        "geradores":   page_geradores,
-        "usinas":      page_usinas,
-        "atividades":  page_atividades,
-        "geracao":     page_geracao,
-        "backoffice":  page_backoffice,
-        "rateio":      page_rateio,
-        "faturamento": page_faturamento,
-        "bi_analise":  page_bi_analise,
+        "dash":         page_dashboard,
+        "geradores":    page_geradores,
+        "usinas":       page_usinas,
+        "atividades":   page_atividades,
+        "geracao":      page_geracao,
+        "backoffice":   page_backoffice,
+        "rateio":       page_rateio,
+        "faturamento":  page_faturamento,
+        "bi_analise":   page_bi_analise,
+        "automacao":    page_automacao,
+        "integracoes":  page_integracoes,
     }
     pages.get(page, page_dashboard)()
 
