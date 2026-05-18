@@ -11,6 +11,13 @@ except Exception as _robot_err:
     ROBOT_DISPONIVEL = False
     _robot_err_msg = str(_robot_err)
 
+try:
+    import rateio_sunne_bot as _rateio_bot
+    RATEIO_BOT_OK = True
+except Exception as _rateio_bot_err:
+    RATEIO_BOT_OK = False
+    _rateio_bot_err_msg = str(_rateio_bot_err)
+
 # ── PAGE CONFIG ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Sunne · Hub Operacional v6",
@@ -298,8 +305,10 @@ def sla_cls(d):
 
 # ── DATA UTILS ────────────────────────────────────────────────────────────────
 def normalize_uc(val):
+    """Remove tudo que não é dígito, ignora zeros à esquerda."""
     if not val: return ""
-    return "".join(filter(str.isdigit, str(val).strip().split('.')[0]))
+    s = "".join(filter(str.isdigit, str(val).strip().split('.')[0]))
+    return s.lstrip("0") or s   # preserva "0" sozinho
 
 def clean_val(v):
     if v is None or (isinstance(v, float) and pd.isna(v)): return 0.0
@@ -892,25 +901,31 @@ def _google_auth_url() -> str:
         client_id = st.secrets["google"]["client_id"]
     except Exception:
         client_id = os.environ.get("GOOGLE_CLIENT_ID","")
-    scopes = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.send"
-    redirect = "https://performance-sunne.streamlit.app/"
-    return (
-        f"https://accounts.google.com/o/oauth2/v2/auth"
-        f"?client_id={client_id}"
-        f"&redirect_uri={redirect}"
-        f"&response_type=code"
-        f"&scope={scopes.replace(' ','%20')}"
-        f"&access_type=offline&prompt=consent"
-    )
+    if not client_id:
+        return "#"
+    import urllib.parse
+    scopes   = ("https://www.googleapis.com/auth/calendar.readonly "
+                "https://www.googleapis.com/auth/gmail.send")
+    redirect = "https://performance-sunne.streamlit.app"
+    params   = urllib.parse.urlencode({
+        "client_id":     client_id,
+        "redirect_uri":  redirect,
+        "response_type": "code",
+        "scope":         scopes,
+        "access_type":   "offline",
+        "prompt":        "consent",
+        "state":         "sunne_oauth",
+    })
+    return f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
 
 def _google_exchange_code(code: str) -> dict:
     import urllib.request, urllib.parse
     try:
         client_id     = st.secrets["google"]["client_id"]
         client_secret = st.secrets["google"]["client_secret"]
-        redirect      = "https://performance-sunne.streamlit.app/"
     except Exception:
         return {}
+    redirect = "https://performance-sunne.streamlit.app"
     data = urllib.parse.urlencode({
         "code": code, "client_id": client_id, "client_secret": client_secret,
         "redirect_uri": redirect, "grant_type": "authorization_code"
@@ -1170,7 +1185,8 @@ def page_dashboard():
 def page_geradores():
     user = st.session_state["user"]; an = user["name"]
     st.title("Geradores")
-    tc, ti = st.tabs(["Carteira","Importar"])
+    tc, ti, tm_add = st.tabs(["Carteira","Importar","Adicionar Manual"])
+
     with tc:
         minha = [g for g in load_geradores() if g.get("analista","").lower() == an.lower()]
         if not minha: st.info("Nenhum gerador cadastrado."); return
@@ -1186,27 +1202,70 @@ def page_geradores():
         filtro = st.selectbox("Concessionária", ["Todas"] + sorted(conc))
         lista  = minha if filtro == "Todas" else [g for g in minha if g.get("concessionaria") == filtro]
         df_s   = pd.DataFrame(lista)
-        cols_s = [c for c in ["gerador","contato","concessionaria","usinas","porte","origem"] if c in df_s.columns]
-        df_s   = df_s[cols_s]; df_s.columns = [c.capitalize() for c in cols_s]
+        cols_s = [c for c in ["gerador","contato","concessionaria","usinas","porte","origem",
+                               "enquadramento","pct_desconto_gerador","pct_taxa_admin"] if c in df_s.columns]
+        df_s   = df_s[cols_s]
+        df_s.columns = [{"pct_desconto_gerador":"% Desc.","pct_taxa_admin":"% Admin",
+                          "enquadramento":"GD"}.get(c, c.capitalize()) for c in cols_s]
         st.dataframe(df_s, use_container_width=True, hide_index=True)
+
     with ti:
-        st.caption("Colunas: Gerador · Contato · Analista · Concessionária · Usinas · Porte · Origem")
-        f = st.file_uploader("Arquivo", type=["xlsx","xls","csv"], key="up_ger")
-        if f and st.button("Salvar", key="btn_sg"):
-            try:
-                df = pd.read_excel(f, dtype=str) if not f.name.endswith(".csv") else pd.read_csv(f, dtype=str)
-                df.columns = df.columns.str.strip().str.lower()
-                df.rename(columns={"concessionária":"concessionaria"}, inplace=True)
-                df = df.fillna("")
-                ex = load_geradores(); nex = {g["gerador"].lower() for g in ex}; n = 0
-                for _, row in df.iterrows():
-                    nm = str(row.get("gerador","")).strip()
-                    if nm and nm.lower() not in nex:
-                        ex.append({k: str(row.get(k,"")) for k in
-                            ["gerador","contato","analista","concessionaria","usinas","porte","origem"]})
-                        nex.add(nm.lower()); n += 1
-                save_geradores(ex); st.success(f"{n} gerador(es) importado(s)."); st.rerun()
-            except Exception as e: st.error(str(e))
+        st.caption("Colunas obrigatórias: **Gerador · Analista** | Opcionais: Contato · Concessionária · "
+                   "Usinas · Porte · Origem · Enquadramento · pct_desconto_gerador · pct_taxa_admin")
+        f = st.file_uploader("Arquivo (.xlsx / .csv)", type=["xlsx","xls","csv"], key="up_ger_v9")
+        if f:
+            if st.button("✅ Importar Geradores", key="btn_sg_v9"):
+                try:
+                    df = pd.read_excel(f, dtype=str) if not f.name.endswith(".csv") else pd.read_csv(f, dtype=str)
+                    df.columns = df.columns.str.strip().str.lower()
+                    df.rename(columns={"concessionária":"concessionaria"}, inplace=True)
+                    df = df.fillna("")
+                    ex = load_geradores(); nex = {g["gerador"].lower() for g in ex}; n = 0
+                    for _, row in df.iterrows():
+                        nm = str(row.get("gerador","")).strip()
+                        if nm and nm.lower() not in nex:
+                            rec = {k: str(row.get(k,"")) for k in
+                                   ["gerador","contato","analista","concessionaria","usinas","porte","origem"]}
+                            rec["enquadramento"]         = str(row.get("enquadramento","GD1"))
+                            rec["pct_desconto_gerador"]  = str(row.get("pct_desconto_gerador","0.20"))
+                            rec["pct_taxa_admin"]        = str(row.get("pct_taxa_admin","0.07"))
+                            if not rec["analista"]: rec["analista"] = an
+                            ex.append(rec); nex.add(nm.lower()); n += 1
+                    save_geradores(ex)
+                    st.success(f"✅ {n} gerador(es) importado(s).")
+                    st.rerun()
+                except Exception as e: st.error(str(e))
+
+    with tm_add:
+        st.markdown("**Adicionar Gerador Manualmente**")
+        with st.form("form_add_ger", clear_on_submit=True):
+            ag1, ag2 = st.columns(2)
+            nm_ger  = ag1.text_input("Nome do Gerador *")
+            contato = ag2.text_input("E-mail de contato")
+            ag3, ag4, ag5 = st.columns(3)
+            concess = ag3.text_input("Concessionária")
+            porte   = ag4.text_input("Porte")
+            origem  = ag5.text_input("Origem")
+            ag6, ag7, ag8 = st.columns(3)
+            enq_g   = ag6.selectbox("Enquadramento", list(TARIFAS_BASE.keys()))
+            desc_g  = ag7.number_input("% Desconto Gerador", 0.0, 1.0, 0.20, 0.01, format="%.2f")
+            taxa_g  = ag8.number_input("% Taxa Admin Sunne",  0.0, 1.0, 0.07, 0.01, format="%.2f")
+            salvar_g = st.form_submit_button("Salvar Gerador", use_container_width=True)
+        if salvar_g:
+            if not nm_ger.strip():
+                st.warning("Nome do gerador obrigatório.")
+            else:
+                ex = load_geradores()
+                if nm_ger.strip().lower() in {g["gerador"].lower() for g in ex}:
+                    st.warning("Gerador já cadastrado.")
+                else:
+                    ex.append({"gerador":nm_ger.strip(),"contato":contato,"analista":an,
+                                "concessionaria":concess,"usinas":"0","porte":porte,"origem":origem,
+                                "enquadramento":enq_g,
+                                "pct_desconto_gerador":float(desc_g),
+                                "pct_taxa_admin":float(taxa_g)})
+                    save_geradores(ex)
+                    st.success(f"✅ Gerador '{nm_ger}' cadastrado!"); st.rerun()
 
 
 def page_usinas():
@@ -1291,20 +1350,22 @@ def page_usinas():
     filtro   = st.selectbox("Filtrar por Gerador", ger_opts)
     lista    = minhas if filtro == "Todos" else [u for u in minhas if u.get("gerador") == filtro]
 
-    h = st.columns([1.4, 1.8, 2.5, 1.4, 0.7, 0.8])
-    for col, txt in zip(h, ["UC","Gerador","UFV","Analista","Ativa","Atividade"]):
+    h = st.columns([1.2, 1.6, 2.5, 0.6, 0.6, 0.6, 0.8])
+    for col, txt in zip(h, ["UC","Gerador","UFV","GD","Ativa","Desc%","Atividade"]):
         col.markdown(f"**{txt}**")
     st.markdown("<hr style='margin:4px 0 8px;border:none;border-top:1px solid rgba(51,0,26,.08)'>",
                 unsafe_allow_html=True)
 
     for idx, u in enumerate(lista):
-        r = st.columns([1.4, 1.8, 2.5, 1.4, 0.7, 0.8])
+        r = st.columns([1.2, 1.6, 2.5, 0.6, 0.6, 0.6, 0.8])
         r[0].write(str(u.get("uc","—")))
         r[1].write(u.get("gerador","—"))
         r[2].write(u.get("ufv","—"))
-        r[3].write(u.get("analista","—"))
+        r[3].write(u.get("enquadramento","—"))
         r[4].write("✅" if u.get("ativa","Sim") == "Sim" else "❌")
-        if r[5].button("📝 Nova", key=f"ativ_{idx}_{u['uc']}"):
+        pct = clean_val(u.get("pct_desconto_gerador",0))
+        r[5].write(f"{pct*100:.0f}%" if pct <= 1 else f"{pct:.0f}%")
+        if r[6].button("📝 Nova", key=f"ativ_{idx}_{u['uc']}"):
             dialog_nova_atividade(uc_pre=str(u.get("uc","")), ger_pre=u.get("gerador",""))
 
 
@@ -1409,6 +1470,17 @@ def page_geracao():
     st.title("Geração das Usinas")
     tm, ti = st.tabs(["Lançamento Manual","Importar Excel"])
 
+    def _upsert_geracao(ger_list: list, novo: dict) -> list:
+        """Substitui registro com mesma UC+competência; adiciona se não existe."""
+        uc_n   = normalize_uc(novo["uc"])
+        comp_n = str(novo.get("competencia","")).strip()
+        ger_list = [g for g in ger_list if not (
+            normalize_uc(g.get("uc","")) == uc_n and
+            str(g.get("competencia","")).strip() == comp_n
+        )]
+        ger_list.append(novo)
+        return ger_list
+
     with tm:
         uc_inp = st.text_input("UC da Usina *", key="ger_uc_inp", placeholder="Digite a UC…")
         nome_auto = ""; gerador_auto = ""
@@ -1419,15 +1491,15 @@ def page_geracao():
                 nome_auto = m.get("ufv",""); gerador_auto = m.get("gerador","")
                 st.success(f"✅ **{nome_auto}** · Gerador: **{gerador_auto}**")
             else:
-                st.caption("UC não encontrada — preencha o nome manualmente.")
+                st.caption(f"UC {uc_inp} não encontrada no cadastro — preencha o nome manualmente.")
 
         with st.form("form_geracao", clear_on_submit=True):
             g1, g2 = st.columns(2)
             nome_g = g1.text_input("Nome Usina", value=nome_auto)
             comp_g = g2.text_input("Competência (MM/AAAA)", value=datetime.now().strftime("%m/%Y"))
             g3, g4 = st.columns(2)
-            inj_g = g3.number_input("Energia Injetada (kWh)", min_value=0.0, step=0.1)
-            sld_g = g4.number_input("Saldo (kWh)",             min_value=0.0, step=0.1)
+            inj_g  = g3.number_input("Energia Injetada (kWh)", min_value=0.0, step=0.1)
+            sld_g  = g4.number_input("Saldo (kWh)",             min_value=0.0, step=0.1)
             ok = st.form_submit_button("Salvar Geração", use_container_width=True)
 
         if ok:
@@ -1438,33 +1510,47 @@ def page_geracao():
                 nf = m2.get("ufv","") if m2 else nome_g
                 gd = m2.get("gerador","") if m2 else gerador_auto
                 ger = load_geracao()
-                ger.append({"uc":str(uc_inp).strip(),"nome_usina":nf,"gerador":gd,
-                            "competencia":comp_g,"energia_injetada":inj_g,"saldo":sld_g,
-                            "registrado_em":datetime.now().strftime("%d/%m/%Y %H:%M")})
+                novo = {"uc":str(uc_inp).strip(),"nome_usina":nf,"gerador":gd,
+                        "competencia":comp_g,"energia_injetada":inj_g,"saldo":sld_g,
+                        "registrado_em":datetime.now().strftime("%d/%m/%Y %H:%M")}
+                ger = _upsert_geracao(ger, novo)
                 save_geracao(ger)
-                st.success(f"✅ Geração registrada — **{nf or uc_inp}**")
+                st.success(f"✅ Geração registrada — **{nf or uc_inp}** · {comp_g}")
 
     with ti:
         st.caption("Colunas: Nome da Usina · Número da UG · Competência · Energia Injetada · Saldo")
+        st.info("💡 Registros com mesma UC + Competência serão **substituídos** (sem duplicatas).")
         f = st.file_uploader("Arquivo", type=["xlsx","xls","csv"], key="up_ger2")
         if f and st.button("Importar", key="btn_iger"):
             try:
                 df = pd.read_excel(f, dtype=str) if not f.name.endswith(".csv") else pd.read_csv(f, dtype=str)
                 df.columns = df.columns.str.strip().str.lower(); df = df.fillna("")
                 df.rename(columns={"nome da usina":"nome_usina","número da ug":"uc",
-                                   "numero da ug":"uc","energia injetada":"energia_injetada"}, inplace=True)
+                                   "numero da ug":"uc","energia injetada":"energia_injetada",
+                                   "número da uc":"uc","numero da uc":"uc"}, inplace=True)
                 usinas = load_usinas(); ger = load_geracao(); n = 0
                 for _, row in df.iterrows():
                     uv = str(row.get("uc","")).strip()
+                    if not uv: continue
                     m  = next((u for u in usinas if normalize_uc(u["uc"]) == normalize_uc(uv)), None)
                     nm = m.get("ufv","") if m else str(row.get("nome_usina",""))
                     gd = m.get("gerador","") if m else ""
-                    ger.append({"uc":str(uv),"nome_usina":nm,"gerador":gd,
-                        "competencia":str(row.get("competência",row.get("competencia",""))),
-                        "energia_injetada":clean_val(row.get("energia_injetada",0)),
-                        "saldo":clean_val(row.get("saldo",0)),
-                        "registrado_em":datetime.now().strftime("%d/%m/%Y %H:%M")}); n += 1
-                save_geracao(ger); st.success(f"{n} registro(s) importado(s).")
+                    comp_raw = str(row.get("competência", row.get("competencia",
+                                  row.get("data","")))).strip()
+                    # Normaliza competência para MM/AAAA
+                    comp_fmt = comp_raw
+                    try:
+                        if "-" in comp_raw or len(comp_raw) > 7:
+                            dt_c = pd.to_datetime(comp_raw, errors="coerce")
+                            if pd.notna(dt_c): comp_fmt = dt_c.strftime("%m/%Y")
+                    except: pass
+                    novo = {"uc":str(uv),"nome_usina":nm,"gerador":gd,
+                            "competencia":comp_fmt,
+                            "energia_injetada":clean_val(row.get("energia_injetada",0)),
+                            "saldo":clean_val(row.get("saldo",0)),
+                            "registrado_em":datetime.now().strftime("%d/%m/%Y %H:%M")}
+                    ger = _upsert_geracao(ger, novo); n += 1
+                save_geracao(ger); st.success(f"✅ {n} registro(s) importado(s) sem duplicatas.")
             except Exception as e: st.error(str(e))
 
     st.markdown('<div class="sdiv"></div>', unsafe_allow_html=True)
@@ -1575,7 +1661,7 @@ def page_backoffice():
 
 def page_rateio():
     st.title("Rateio")
-    ta, tb, tc, td = st.tabs(["Rebalancear","Atualizar Vigente","Consultar","Buscar UC"])
+    ta, tb, tc, td, te = st.tabs(["Rebalancear","Atualizar Vigente","Consultar","Buscar UC","🔄 Rateios Sunne"])
     geradores = load_geradores()
     nomes_ger = sorted({g["gerador"] for g in geradores})
 
@@ -1787,6 +1873,144 @@ def page_rateio():
                     if found: break
                 if not found:
                     st.warning(f"UC **{uc_b}** não encontrada em nenhum rateio ativo.")
+
+    # ══ TAB E — RATEIOS SUNNE ══════════════════════════════════════════════════
+    with te:
+        st.markdown("#### 🔄 Rateios Ativos — Portal rateios.sunne.com.br")
+        st.caption("O robô acessa o portal diariamente às 07h e sincroniza os rateios ativos de cada UG.")
+
+        if not RATEIO_BOT_OK:
+            st.error("⚠️ Módulo rateio_sunne_bot não disponível.")
+            with st.expander("Detalhes"):
+                st.code(_rateio_bot_err_msg)
+        else:
+            sched_r  = _rateio_bot.load_sync_schedule()
+            ultima_r = sched_r.get("ultima","—")
+
+            # Status + config agendamento
+            rc1, rc2, rc3 = st.columns(3)
+            rc1.markdown(f'<div class="kpi-box"><div class="kpi-value" style="font-size:1.1rem">'
+                         f'{sched_r.get("hora","07:00")}</div>'
+                         f'<div class="kpi-label">Horário Sync</div></div>', unsafe_allow_html=True)
+            rc2.markdown(f'<div class="kpi-box"><div class="kpi-value" style="font-size:1.1rem">'
+                         f'{"✅ Ativo" if sched_r.get("auto",True) else "⏸ Pausado"}</div>'
+                         f'<div class="kpi-label">Agendamento</div></div>', unsafe_allow_html=True)
+            rc3.markdown(f'<div class="kpi-box"><div class="kpi-value" style="font-size:1.1rem">'
+                         f'{ultima_r}</div>'
+                         f'<div class="kpi-label">Última Sync</div></div>', unsafe_allow_html=True)
+
+            st.write("")
+            # Configuração agendamento
+            with st.expander("⚙️ Configurar Agendamento"):
+                with st.form("form_rateio_sched"):
+                    rs1, rs2 = st.columns(2)
+                    hora_r = rs1.text_input("Horário (HH:MM)", value=sched_r.get("hora","07:00"))
+                    auto_r = rs2.checkbox("Sincronização automática diária",
+                                          value=sched_r.get("auto",True))
+                    if st.form_submit_button("Salvar"):
+                        sched_r["hora"] = hora_r.strip()
+                        sched_r["auto"] = auto_r
+                        _rateio_bot.save_sync_schedule(sched_r)
+                        st.success("✅ Agendamento salvo."); st.rerun()
+                st.markdown("**Secrets necessários:**")
+                st.code("""[sunne_rateios]
+email    = "milena.braga@sunne.com.br"
+password = "Milena1968@" """, language="toml")
+
+            # Botão manual
+            rodando_r = st.session_state.get("rateio_bot_rodando", False)
+            if st.button("🔄 Sincronizar Agora", disabled=rodando_r, key="btn_sync_rateio"):
+                st.session_state["rateio_bot_rodando"] = True
+                st.rerun()
+
+            if st.session_state.get("rateio_bot_rodando"):
+                st.markdown("---")
+                prog_r  = st.progress(0.0)
+                stat_r  = st.empty()
+                log_r_t = st.empty()
+                log_live_r = []
+
+                def _on_prog_r(pct, msg):
+                    prog_r.progress(min(pct,1.0))
+                    stat_r.markdown(f'<div class="alert alert-b">🔄 {msg}</div>',
+                                    unsafe_allow_html=True)
+
+                def _on_log_r(entry):
+                    log_live_r.append(entry)
+                    df_r = pd.DataFrame(log_live_r)
+                    log_r_t.dataframe(df_r, use_container_width=True, hide_index=True)
+
+                try:
+                    res_r = _rateio_bot.executar_sync_rateios(
+                        progress_cb=_on_prog_r, log_cb=_on_log_r)
+                    st.session_state["rateio_bot_ultimo"] = res_r
+                except Exception as ex_r:
+                    st.error(f"Erro: {ex_r}")
+                finally:
+                    st.session_state["rateio_bot_rodando"] = False
+                    prog_r.progress(1.0)
+                    stat_r.markdown('<div class="alert alert-g">✅ Sincronização concluída!</div>',
+                                    unsafe_allow_html=True)
+
+            # Tabela de rateios ativos
+            st.markdown("---")
+            st.markdown("#### Rateios Ativos Sincronizados")
+            ativos = _rateio_bot.load_rateios_ativos()
+            if not ativos:
+                st.info("Nenhum rateio sincronizado ainda. Clique em **Sincronizar Agora**.")
+            else:
+                # Filtros
+                rf1, rf2 = st.columns(2)
+                ugs_disp = sorted({str(r.get("ug","")) for r in ativos})
+                ug_filt  = rf1.selectbox("Filtrar UG", ["Todas"] + ugs_disp, key="rateio_ug_filt")
+                status_filt = rf2.selectbox("Status", ["Todos","sincronizado","não_encontrado","erro"],
+                                             key="rateio_status_filt")
+                ativos_f = ativos
+                if ug_filt != "Todas":         ativos_f = [r for r in ativos_f if str(r.get("ug","")) == ug_filt]
+                if status_filt != "Todos":     ativos_f = [r for r in ativos_f if r.get("status","") == status_filt]
+
+                df_at = pd.DataFrame(ativos_f)
+                cols_at = [c for c in ["ug","status","percentuais_encontrados","coletado_em","texto_bruto"] if c in df_at.columns]
+                st.dataframe(df_at[cols_at], use_container_width=True, hide_index=True)
+
+                # Alerta de rebalanceamento
+                sincs = [r for r in ativos if r.get("status") == "sincronizado"]
+                if sincs:
+                    st.markdown("---")
+                    st.markdown("**💡 Análise de Necessidade de Rebalanceamento**")
+                    usinas_hub = _load(f"{DB}/usinas.json", []) if os.path.exists(f"{DB}/usinas.json") else []
+                    ger_list   = load_geracao()
+                    mes_atual  = datetime.now().strftime("%m/%Y")
+                    for r in sincs:
+                        ug_r = str(r.get("ug",""))
+                        # Busca geração do mês atual
+                        ger_ug = next((g for g in ger_list
+                                       if normalize_uc(str(g.get("uc",""))) == normalize_uc(ug_r)
+                                       and g.get("competencia","") == mes_atual), None)
+                        if ger_ug:
+                            inj   = clean_val(ger_ug.get("energia_injetada",0))
+                            saldo = clean_val(ger_ug.get("saldo",0))
+                            if inj > 0 and saldo/inj > 0.05:
+                                nome_u = ger_ug.get("nome_usina", ug_r)
+                                st.markdown(
+                                    f'<div class="alert alert-y">🚨 UG <b>{ug_r}</b> ({nome_u}): '
+                                    f'saldo {saldo:,.0f} kWh = {saldo/inj*100:.1f}% da injeção. '
+                                    f'Considere rebalancear o rateio.</div>',
+                                    unsafe_allow_html=True)
+
+                # Log de sync
+                with st.expander("📋 Log de Sincronizações"):
+                    log_s = _rateio_bot.load_sync_log()
+                    if log_s:
+                        st.dataframe(pd.DataFrame(log_s[:50]), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("Nenhum log ainda.")
+
+                # Export
+                st.download_button("📥 Exportar Rateios CSV",
+                    df_at.to_csv(index=False, sep=";").encode("utf-8-sig"),
+                    f"rateios_ativos_{datetime.now().strftime('%Y%m%d')}.csv",
+                    "text/csv", key="dl_rateio_csv")
 
 
 def page_faturamento():
@@ -2744,12 +2968,18 @@ def main():
             st.markdown("</div>", unsafe_allow_html=True)
         return
 
-    # ── Auto-agendamento 08h ──────────────────────────────────────────────────
+    # ── Auto-agendamento 08h captura faturas ─────────────────────────────────
     if ROBOT_DISPONIVEL and _robot.verificar_agendamento():
         if not st.session_state.get("robot_rodando", False):
             st.session_state["robot_rodando"]      = True
             st.session_state["robot_auto_trigger"] = True
             st.session_state["page"]               = "automacao"
+
+    # ── Auto-agendamento 07h sync rateios sunne ───────────────────────────────
+    if RATEIO_BOT_OK and _rateio_bot.verificar_agendamento_rateio():
+        if not st.session_state.get("rateio_bot_rodando", False):
+            st.session_state["rateio_bot_rodando"] = True
+            st.session_state["page"]               = "rateio"
 
     render_sidebar()
 
