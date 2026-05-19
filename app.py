@@ -20,162 +20,504 @@ except Exception as _rateio_bot_err:
 
 # ── PAGE CONFIG ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Sunne · Hub Operacional v6",
-    page_icon="☀️",
+    page_title="Sunne · Hub Operacional",
+    page_icon="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ── CSS ────────────────────────────────────────────────────────────────────────
+# ── CSS PREMIUM SUNNE ─────────────────────────────────────────────────────────
 SUNNE_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&family=Playfair+Display:wght@400;500;600&display=swap');
 
 :root {
-  --rubi:#33001A; --rubi-l:#4D0028; --gold:#F36E21; --gold-l:rgba(243,110,33,.12);
-  --cream:#FDF8F5; --cream-d:#F5EDE6; --ink:#1A0D10; --ink-m:#5A3040;
-  --border:rgba(51,0,26,.10); --border-s:rgba(51,0,26,.06); --white:#FFFFFF;
-  --radius:14px; --radius-s:8px; --shadow:0 2px 16px rgba(51,0,26,.08);
-  --shadow-l:0 8px 40px rgba(51,0,26,.14);
-}
-html,body,[class*="css"] { font-family:'DM Sans',sans-serif; color:var(--ink); }
-[data-testid="stAppViewContainer"] { background:var(--cream); }
-#MainMenu,footer,header { visibility:hidden; }
-.block-container { padding-top:2rem!important; }
+  /* Marca Sunne */
+  --rubi:        #33001A;
+  --rubi-d:      #220012;
+  --rubi-l:      #4D0028;
+  --rubi-xl:     #6B0038;
+  --gold:        #F36E21;
+  --gold-d:      #D45E18;
+  --gold-l:      rgba(243,110,33,.10);
+  --gold-xl:     rgba(243,110,33,.05);
 
-[data-testid="stSidebar"] { background:var(--rubi)!important; border-right:1px solid var(--rubi-l); }
+  /* Superfícies */
+  --bg:          #F8F4F1;
+  --bg-alt:      #F2EDE9;
+  --surface:     #FFFFFF;
+  --surface-2:   #FDF9F7;
+
+  /* Texto */
+  --ink:         #1C0F14;
+  --ink-m:       #5C3545;
+  --ink-l:       #9B7080;
+
+  /* Bordas e sombras */
+  --border:      rgba(51,0,26,.08);
+  --border-m:    rgba(51,0,26,.14);
+  --shadow-s:    0 1px 4px rgba(51,0,26,.06);
+  --shadow:      0 2px 12px rgba(51,0,26,.08);
+  --shadow-m:    0 4px 24px rgba(51,0,26,.10);
+  --shadow-l:    0 8px 48px rgba(51,0,26,.14);
+
+  /* Radii */
+  --r-s:   6px;
+  --r:     12px;
+  --r-l:   18px;
+  --r-xl:  24px;
+}
+
+/* ── Reset & base ── */
+html, body, [class*="css"] {
+  font-family: 'DM Sans', sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+[data-testid="stAppViewContainer"] {
+  background: var(--bg);
+}
+[data-testid="stMain"] {
+  background: var(--bg);
+}
+#MainMenu, footer, header { visibility: hidden; }
+.block-container {
+  padding: 2rem 2.5rem 4rem !important;
+  max-width: 1400px !important;
+}
+
+/* ── Sidebar premium ── */
+[data-testid="stSidebar"] {
+  background: var(--rubi-d) !important;
+  border-right: 1px solid rgba(255,255,255,.04) !important;
+  box-shadow: 4px 0 32px rgba(0,0,0,.18) !important;
+}
+[data-testid="stSidebar"] > div { padding: 0 !important; }
+
+/* Remove padrão dos botões do sidebar */
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
-  background:transparent!important; border:none!important; padding:0!important;
-  margin-bottom:4px!important; width:100%!important; display:flex!important;
-  justify-content:flex-start!important; box-shadow:none!important;
-  border-radius:8px!important; transition:all .18s!important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin-bottom: 2px !important;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  box-shadow: none !important;
+  border-radius: var(--r-s) !important;
+  transition: all .15s ease !important;
 }
-[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover { background:rgba(255,255,255,.08)!important; }
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
+  background: rgba(255,255,255,.07) !important;
+}
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] p {
-  color:rgba(255,255,255,.8)!important; font-size:14px!important;
-  font-weight:400!important; letter-spacing:.01em; padding:4px 0!important;
+  color: rgba(255,255,255,.72) !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+  letter-spacing: .01em;
+  padding: 5px 2px !important;
 }
-[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover p { color:#fff!important; font-weight:500!important; }
-
-.stButton>button {
-  background:var(--gold)!important; color:white!important; border:none!important;
-  border-radius:var(--radius-s)!important; font-weight:500!important; font-size:13.5px!important;
-  padding:.55rem 1.4rem!important; letter-spacing:.01em!important;
-  box-shadow:0 1px 6px rgba(243,110,33,.3)!important; transition:all .15s!important;
-}
-.stButton>button:hover { background:#D45E18!important; transform:translateY(-1px)!important; }
-.stDownloadButton>button {
-  background:var(--rubi)!important; color:white!important; border:none!important;
-  border-radius:var(--radius-s)!important; font-size:13px!important; padding:.5rem 1.2rem!important;
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover p {
+  color: #fff !important;
+  font-weight: 500 !important;
 }
 
-h1 { font-family:'Instrument Serif',serif!important; font-size:2rem!important;
-     font-weight:400!important; color:var(--rubi)!important; letter-spacing:-.01em!important; margin-bottom:.1rem!important; }
-h2 { font-size:1.1rem!important; font-weight:600!important; color:var(--rubi)!important; }
-h3 { font-size:.95rem!important; font-weight:600!important; color:var(--ink)!important; }
+/* ── Tipografia de título ── */
+h1 {
+  font-family: 'Playfair Display', serif !important;
+  font-size: 1.9rem !important;
+  font-weight: 500 !important;
+  color: var(--rubi) !important;
+  letter-spacing: -.02em !important;
+  margin-bottom: .15rem !important;
+  line-height: 1.15 !important;
+}
+h2 {
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+  color: var(--rubi) !important;
+  letter-spacing: -.01em !important;
+}
+h3 {
+  font-size: .9rem !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+}
 
-.kpi-box { background:var(--white); border:1px solid var(--border); border-radius:var(--radius);
-           padding:1.2rem 1.4rem; box-shadow:var(--shadow); position:relative; overflow:hidden; }
-.kpi-box::before { content:''; position:absolute; top:0; left:0; right:0; height:3px;
-                   background:var(--gold); border-radius:var(--radius) var(--radius) 0 0; }
-.kpi-value { font-family:'Instrument Serif',serif; font-size:2rem; font-weight:400;
-             color:var(--rubi); line-height:1; margin-bottom:.25rem; }
-.kpi-label { font-size:11px; font-weight:600; color:var(--ink-m); text-transform:uppercase; letter-spacing:.07em; }
-.kpi-delta { font-size:11px; margin-top:4px; }
-.kpi-up { color:#0B7A5F; } .kpi-down { color:#C41230; } .kpi-neutral { color:var(--ink-m); }
+/* ── Botões principais ── */
+.stButton > button {
+  background: var(--gold) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: var(--r-s) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: .55rem 1.4rem !important;
+  letter-spacing: .02em !important;
+  box-shadow: 0 1px 8px rgba(243,110,33,.28) !important;
+  transition: all .15s ease !important;
+}
+.stButton > button:hover {
+  background: var(--gold-d) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(243,110,33,.35) !important;
+}
+.stButton > button:active {
+  transform: translateY(0) !important;
+}
+.stDownloadButton > button {
+  background: var(--rubi) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: var(--r-s) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  padding: .45rem 1.1rem !important;
+  box-shadow: 0 1px 6px rgba(51,0,26,.2) !important;
+}
 
-.kb-col-head { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
-               padding:.45rem .9rem; border-radius:8px; margin-bottom:.75rem;
-               display:flex; align-items:center; justify-content:space-between; }
-.kb-aberto { background:#FFF3EC; color:#A84010; }
-.kb-andamento { background:#FFFBEC; color:#7A5010; }
-.kb-travado { background:#FFF0F0; color:#8B1010; }
-.kb-concluido { background:#EDFCF6; color:#0A6A50; }
-.kb-cancelado { background:#F5F5F5; color:#444; }
+/* ── Inputs e selects ── */
+[data-testid="stTextInput"] input,
+[data-testid="stSelectbox"] > div,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea {
+  border-radius: var(--r-s) !important;
+  border: 1.5px solid var(--border-m) !important;
+  background: var(--surface) !important;
+  font-size: 13.5px !important;
+  transition: border-color .15s !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 0 3px rgba(243,110,33,.12) !important;
+}
 
-.kb-card { background:var(--white); border:1px solid var(--border); border-radius:10px;
-           padding:.85rem 1rem; margin-bottom:.5rem; cursor:pointer;
-           transition:box-shadow .15s, border-color .15s, transform .1s; }
-.kb-card:hover { border-color:var(--gold); box-shadow:0 4px 16px rgba(51,0,26,.1); transform:translateY(-1px); }
-.kb-card-title { font-weight:600; font-size:13px; color:var(--rubi); margin-bottom:5px; }
-.kb-card-meta { font-size:11.5px; color:var(--ink-m); line-height:1.75; }
-.kb-sla-ok { color:#0B7A5F; font-size:11px; font-weight:600; margin-top:4px; }
-.kb-sla-med { color:#7A5010; font-size:11px; font-weight:600; margin-top:4px; }
-.kb-sla-bad { color:#C41230; font-size:11px; font-weight:600; margin-top:4px; }
-.kb-motivo { font-size:11px; color:#8B1010; margin-top:4px; font-style:italic; }
-.kb-obs-badge { display:inline-block; background:var(--gold-l); color:var(--gold);
-                border-radius:4px; padding:1px 7px; font-size:10.5px; font-weight:600; margin-top:4px; }
-.kb-wrap { min-height:80px; }
-.kb-empty { font-size:12px; color:#C0A0A8; text-align:center; padding:1.5rem 0; }
-.kb-metric { font-size:11px; color:var(--ink-m); text-align:center; margin-top:.5rem;
-             background:var(--cream-d); border-radius:6px; padding:.3rem; }
+/* ── Tabs ── */
+[data-testid="stTabs"] [role="tablist"] {
+  border-bottom: 1.5px solid var(--border) !important;
+  gap: 0 !important;
+}
+[data-testid="stTabs"] button[role="tab"] {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--ink-l) !important;
+  padding: .55rem 1.1rem !important;
+  border-radius: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  transition: all .15s !important;
+}
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+  color: var(--gold) !important;
+  border-bottom-color: var(--gold) !important;
+  font-weight: 600 !important;
+}
+[data-testid="stTabs"] button[role="tab"]:hover {
+  color: var(--ink) !important;
+}
 
-.bi-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius);
-           padding:1.4rem 1.6rem; box-shadow:var(--shadow); margin-bottom:1rem; }
-.bi-card-header { font-family:'Instrument Serif',serif; font-size:1.1rem; color:var(--rubi);
-                  margin-bottom:1rem; padding-bottom:.6rem; border-bottom:2px solid var(--gold-l); }
+/* ── Dataframes ── */
+[data-testid="stDataFrame"] {
+  border-radius: var(--r) !important;
+  overflow: hidden !important;
+  box-shadow: var(--shadow-s) !important;
+  border: 1px solid var(--border) !important;
+}
 
-.alert { border-radius:10px; padding:.7rem 1rem; margin-bottom:.5rem; font-size:13px; }
-.alert-r { background:#FFF0F3; border:1px solid #FFC8D0; color:#8B1530; }
-.alert-y { background:#FFFBEC; border:1px solid #FFE580; color:#6B4A00; }
-.alert-g { background:#EDFCF6; border:1px solid #A0EDCE; color:#0A5040; }
-.alert-b { background:#EEF4FF; border:1px solid #B8D0FF; color:#1E3A8A; }
+/* ── Expanders ── */
+[data-testid="stExpander"] {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r) !important;
+  background: var(--surface) !important;
+  box-shadow: var(--shadow-s) !important;
+}
 
-.insight-badge { display:inline-block; border-radius:6px; padding:4px 10px;
-                 font-size:11px; font-weight:600; margin:3px 3px 3px 0; }
-.badge-red { background:#FFF0F3; color:#8B1530; border:1px solid #FFC8D0; }
-.badge-yellow { background:#FFFBEC; color:#6B4A00; border:1px solid #FFE580; }
-.badge-green { background:#EDFCF6; color:#0A5040; border:1px solid #A0EDCE; }
+/* ══════════════════════════════════════════
+   COMPONENTES CUSTOMIZADOS
+═══════════════════════════════════════════ */
 
-.kb-tag-atrasada { display:inline-block; background:#FFF0F3; color:#8B1530;
-  border:1px solid #FFC8D0; border-radius:4px; padding:1px 7px;
-  font-size:10px; font-weight:700; letter-spacing:.04em; margin-top:3px; }
-.kb-tag-hoje { display:inline-block; background:#FFF3EC; color:#A84010;
-  border:1px solid #FFCBA0; border-radius:4px; padding:1px 7px;
-  font-size:10px; font-weight:700; margin-top:3px; }
-.kb-tag-prog { display:inline-block; background:#EEF4FF; color:#1E3A8A;
-  border:1px solid #B8D0FF; border-radius:4px; padding:1px 7px;
-  font-size:10px; font-weight:600; margin-top:3px; }
+/* KPI Card */
+.kpi-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-l);
+  padding: 1.3rem 1.5rem 1.1rem;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow .2s, transform .2s;
+}
+.kpi-box:hover {
+  box-shadow: var(--shadow-m);
+  transform: translateY(-1px);
+}
+.kpi-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-d));
+  border-radius: var(--r-l) var(--r-l) 0 0;
+}
+.kpi-value {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.1rem;
+  font-weight: 500;
+  color: var(--rubi);
+  line-height: 1;
+  margin-bottom: .3rem;
+}
+.kpi-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-l);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+.kpi-delta { font-size: 11px; margin-top: 5px; }
+.kpi-up   { color: #0B7A5F; }
+.kpi-down { color: #C41230; }
 
-.cal-box { background:var(--white); border:1px solid var(--border);
-  border-radius:var(--radius); padding:1rem 1.2rem; box-shadow:var(--shadow); }
-.cal-day-header { font-size:10px; font-weight:700; color:var(--ink-m);
-  text-transform:uppercase; letter-spacing:.06em; margin-bottom:.4rem; }
-.cal-event { background:var(--gold-l); border-left:3px solid var(--gold);
-  border-radius:4px; padding:3px 8px; font-size:11px; margin-bottom:3px;
-  color:var(--ink); }
-.cal-event-atrasado { background:#FFF0F3; border-left:3px solid #C41230;
-  border-radius:4px; padding:3px 8px; font-size:11px; margin-bottom:3px; color:#8B1530; }
-.cal-event-hoje { background:#EDFCF6; border-left:3px solid #0B7A5F;
-  border-radius:4px; padding:3px 8px; font-size:11px; margin-bottom:3px; color:#0A5040; }
+/* Divider */
+.sdiv {
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+  margin: 1.5rem 0;
+}
 
-.modelo-card { background:var(--white); border:1px solid var(--border);
-  border-radius:var(--radius-s); padding:1rem; margin-bottom:.5rem; }
-.modelo-header { font-size:12px; font-weight:700; text-transform:uppercase;
-  letter-spacing:.06em; padding:.3rem .7rem; border-radius:6px; margin-bottom:.6rem; }
-.modelo-assoc  { background:#EEF4FF; color:#1E3A8A; }
-.modelo-cons   { background:#FFF3EC; color:#A84010; }
-.modelo-auto   { background:#EDFCF6; color:#0A5040; }
+/* Section header */
+.sec-head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+.sec-head-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  color: var(--rubi);
+  font-weight: 500;
+}
+.sec-head-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
 
-.deducao-row { display:flex; justify-content:space-between; align-items:center;
-  padding:.35rem 0; border-bottom:1px solid var(--border-s); font-size:13px; }
-.deducao-label { color:var(--ink-m); }
-.deducao-val-neg { color:#C41230; font-weight:600; }
-.deducao-val-pos { color:#0B7A5F; font-weight:700; font-size:1.05em; }
+/* Alert / badge */
+.alert {
+  border-radius: var(--r);
+  padding: .75rem 1rem;
+  margin-bottom: .5rem;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.alert-r { background: #FFF0F3; border: 1px solid #FFC8D0; color: #8B1530; }
+.alert-y { background: #FFFBEC; border: 1px solid #FFE580; color: #6B4A00; }
+.alert-g { background: #EDFCF6; border: 1px solid #A0EDCE; color: #0A5040; }
+.alert-b { background: #EEF4FF; border: 1px solid #B8D0FF; color: #1E3A8A; }
 
-.notif-banner { background:#FFF3EC; border:1px solid #FFCBA0; border-radius:10px;
-  padding:.8rem 1.1rem; margin-bottom:1rem; font-size:13px; color:#A84010; }
-.sb-user { background:rgba(255,255,255,.08); border-radius:10px; padding:.6rem .8rem; margin-bottom:1rem; }
-.sb-user-name { font-size:13px; color:white; font-weight:500; }
-.sb-user-role { font-size:11px; color:rgba(255,255,255,.5); }
-.sec-label { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
-             color:rgba(255,255,255,.35); margin-bottom:6px; margin-top:14px; padding-left:4px; }
-.hist-row { background:var(--white); border:1px solid var(--border); border-radius:10px;
-            padding:1rem 1.2rem; margin-bottom:.6rem; cursor:pointer; transition:all .15s; }
-.hist-row:hover { border-color:var(--gold); box-shadow:var(--shadow); }
+/* Kanban */
+.kb-col-head {
+  font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .12em;
+  padding: .5rem 1rem; border-radius: var(--r-s);
+  margin-bottom: .75rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.kb-aberto    { background: #FFF3EC; color: #A84010; }
+.kb-andamento { background: #FFFBEC; color: #7A5010; }
+.kb-travado   { background: #FFF0F0; color: #8B1010; }
+.kb-concluido { background: #EDFCF6; color: #0A6A50; }
+.kb-cancelado { background: #F5F5F5; color: #555; }
+
+.kb-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: .9rem 1rem;
+  margin-bottom: .5rem;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.kb-card:hover {
+  border-color: var(--gold);
+  box-shadow: 0 4px 20px rgba(51,0,26,.10);
+  transform: translateY(-1px);
+}
+.kb-card-title {
+  font-weight: 600; font-size: 13px;
+  color: var(--rubi); margin-bottom: 5px;
+}
+.kb-card-meta {
+  font-size: 11.5px; color: var(--ink-m); line-height: 1.8;
+}
+.kb-sla-ok  { color: #0B7A5F; font-size: 11px; font-weight: 600; margin-top: 4px; }
+.kb-sla-med { color: #7A5010; font-size: 11px; font-weight: 600; margin-top: 4px; }
+.kb-sla-bad { color: #C41230; font-size: 11px; font-weight: 600; margin-top: 4px; }
+.kb-motivo  { font-size: 11px; color: #8B1010; margin-top: 4px; font-style: italic; }
+.kb-obs-badge {
+  display: inline-block; background: var(--gold-l); color: var(--gold);
+  border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; margin-top: 4px;
+}
+.kb-wrap    { min-height: 60px; }
+.kb-empty   { font-size: 12px; color: var(--ink-l); text-align: center; padding: 1.5rem 0; }
+.kb-metric  { font-size: 11px; color: var(--ink-l); text-align: center; margin-top: .5rem;
+              background: var(--bg-alt); border-radius: var(--r-s); padding: .3rem; }
+.kb-tag-atrasada {
+  display: inline-block; background: #FFF0F3; color: #8B1530;
+  border: 1px solid #FFC8D0; border-radius: 4px; padding: 1px 7px;
+  font-size: 10px; font-weight: 700; margin-top: 3px; letter-spacing: .04em;
+}
+.kb-tag-hoje {
+  display: inline-block; background: #FFF3EC; color: #A84010;
+  border: 1px solid #FFCBA0; border-radius: 4px; padding: 1px 7px;
+  font-size: 10px; font-weight: 700; margin-top: 3px;
+}
+.kb-tag-prog {
+  display: inline-block; background: #EEF4FF; color: #1E3A8A;
+  border: 1px solid #B8D0FF; border-radius: 4px; padding: 1px 7px;
+  font-size: 10px; font-weight: 600; margin-top: 3px;
+}
+
+/* Sidebar internals */
+.sb-brand {
+  padding: 1.8rem 1.4rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  margin-bottom: .5rem;
+}
+.sb-brand-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.3rem; color: white; font-weight: 500; letter-spacing: -.01em;
+}
+.sb-brand-sub {
+  font-size: 10px; color: rgba(255,255,255,.4); letter-spacing: .1em;
+  text-transform: uppercase; margin-top: 1px;
+}
+.sb-user {
+  margin: 0 .8rem .75rem;
+  background: rgba(255,255,255,.06);
+  border-radius: var(--r); padding: .7rem .9rem;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.sb-user-name { font-size: 13px; color: white; font-weight: 600; }
+.sb-user-role {
+  font-size: 10px; color: rgba(255,255,255,.45);
+  text-transform: uppercase; letter-spacing: .08em; margin-top: 1px;
+}
+.sb-google-badge {
+  margin: 0 .8rem .5rem;
+  background: rgba(255,255,255,.04);
+  border-radius: var(--r-s); padding: .4rem .7rem;
+  font-size: 11px; color: rgba(255,255,255,.6);
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid rgba(255,255,255,.07);
+}
+.sec-label {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(255,255,255,.28);
+  margin-bottom: 4px; margin-top: 16px; padding-left: 1rem;
+}
+.sb-divider { height: 1px; background: rgba(255,255,255,.06); margin: .5rem .8rem; }
+
+/* Notif banner */
+.notif-banner {
+  background: linear-gradient(135deg, #FFF3EC, #FFFBEC);
+  border: 1px solid #FFCBA0; border-radius: var(--r);
+  padding: .85rem 1.1rem; margin-bottom: 1rem;
+  font-size: 13px; color: #A84010;
+}
+
+/* Calendar */
+.cal-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-l); padding: 1.2rem 1.3rem;
+  box-shadow: var(--shadow);
+}
+.cal-day-header {
+  font-size: 9.5px; font-weight: 800; color: var(--ink-l);
+  text-transform: uppercase; letter-spacing: .1em;
+  margin-bottom: .4rem; margin-top: .8rem; padding-bottom: .3rem;
+  border-bottom: 1px solid var(--border);
+}
+.cal-event {
+  background: var(--gold-l); border-left: 3px solid var(--gold);
+  border-radius: 4px; padding: 3px 8px; font-size: 11px;
+  margin-bottom: 3px; color: var(--ink);
+}
+.cal-event-atrasado {
+  background: #FFF0F3; border-left: 3px solid #C41230;
+  border-radius: 4px; padding: 3px 8px; font-size: 11px;
+  margin-bottom: 3px; color: #8B1530;
+}
+.cal-event-hoje {
+  background: #EDFCF6; border-left: 3px solid #0B7A5F;
+  border-radius: 4px; padding: 3px 8px; font-size: 11px;
+  margin-bottom: 3px; color: #0A5040;
+}
+
+/* BI / Deduções */
+.deducao-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .4rem 0; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.deducao-label  { color: var(--ink-m); }
+.deducao-val-neg { color: #C41230; font-weight: 600; }
+.deducao-val-pos { color: #0B7A5F; font-weight: 700; font-size: 1.05em; }
+
+.modelo-card { background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-s); padding: 1rem; margin-bottom: .5rem; }
+.modelo-header { font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; padding: .3rem .7rem; border-radius: 5px; margin-bottom: .5rem; }
+.modelo-assoc  { background: #EEF4FF; color: #1E3A8A; }
+.modelo-cons   { background: #FFF3EC; color: #A84010; }
+.modelo-auto   { background: #EDFCF6; color: #0A5040; }
+
+/* Login page */
+.login-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--rubi-d) 0%, var(--rubi) 50%, var(--rubi-xl) 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.login-card {
+  background: rgba(255,255,255,.97);
+  border-radius: var(--r-xl);
+  padding: 3rem 2.8rem 2.5rem;
+  box-shadow: 0 32px 80px rgba(0,0,0,.35);
+  max-width: 420px; width: 100%;
+}
+.login-brand {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem; color: var(--rubi);
+  font-weight: 500; margin-bottom: .15rem;
+}
+.login-sub {
+  font-size: 12px; color: var(--ink-l);
+  text-transform: uppercase; letter-spacing: .1em;
+  margin-bottom: 2rem;
+}
+.login-form-label {
+  font-size: 11px; font-weight: 700; color: var(--ink-m);
+  text-transform: uppercase; letter-spacing: .08em; margin-bottom: .3rem;
+}
+
+/* Page header strip */
+.page-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  margin-bottom: 1.75rem; padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.page-header-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.9rem; color: var(--rubi); font-weight: 500;
+  letter-spacing: -.02em; line-height: 1;
+}
+.page-header-sub {
+  font-size: 12px; color: var(--ink-l); margin-top: .3rem;
+}
 </style>
 """
-
 # ── PATHS ─────────────────────────────────────────────────────────────────────
 DB              = "database"
 USERS_FILE      = "users.json"
@@ -1013,20 +1355,35 @@ def _buscar_eventos_google_semana(tokens: dict) -> list:
 
 def render_sidebar():
     with st.sidebar:
-        try:
-            st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=110)
-        except:
-            st.markdown("**☀️ Sunne**")
+        u    = st.session_state["user"]
+        goog = load_google_tokens()
 
-        u = st.session_state["user"]
+        # ── Brand ─────────────────────────────────────────────────────────────
+        st.markdown(
+            '<div class="sb-brand">'
+            '<div class="sb-brand-name">Sunne</div>'
+            '<div class="sb-brand-sub">Hub Operacional</div>'
+            '</div>',
+            unsafe_allow_html=True)
+
+        # ── User card ─────────────────────────────────────────────────────────
+        role_label = {"admin":"Administrador","user":"Analista"}.get(u.get("role","user"),"Analista")
         st.markdown(
             f'<div class="sb-user">'
             f'<div class="sb-user-name">{u["name"]}</div>'
-            f'<div class="sb-user-role">{u.get("role","user")}</div>'
+            f'<div class="sb-user-role">{role_label}</div>'
             f'</div>', unsafe_allow_html=True)
+
+        # Google badge
+        if goog.get("access_token"):
+            nome_g = goog.get("_google_name","Google")
+            st.markdown(
+                f'<div class="sb-google-badge">✅ {nome_g}</div>',
+                unsafe_allow_html=True)
 
         st.session_state.setdefault("page", "dash")
 
+        # ── Nav ───────────────────────────────────────────────────────────────
         st.markdown('<div class="sec-label">Operação</div>', unsafe_allow_html=True)
         for key, label in [("dash","Dashboard"),("geradores","Geradores"),
                            ("usinas","Usinas"),("atividades","Atividades")]:
@@ -1040,29 +1397,24 @@ def render_sidebar():
 
         st.markdown('<div class="sec-label">Financeiro</div>', unsafe_allow_html=True)
         for key, label in [("rateio","Rateio"),("faturamento","Faturamento"),
-                           ("bi_analise","📊 Análise BI")]:
+                           ("bi_analise","Análise BI")]:
             if st.button(label, key=f"nav_{key}"):
                 st.session_state["page"] = key
 
         st.markdown('<div class="sec-label">Automação</div>', unsafe_allow_html=True)
-        if st.button("🤖 Captura Automática", key="nav_automacao"):
+        if st.button("Captura Automática", key="nav_automacao"):
             st.session_state["page"] = "automacao"
 
         st.markdown('<div class="sec-label">Config</div>', unsafe_allow_html=True)
-        goog_sb = load_google_tokens()
-        if goog_sb.get("access_token"):
-            nome_sb = goog_sb.get("_google_name","Google")
-            st.markdown(
-                f'<div style="background:rgba(255,255,255,.06);border-radius:8px;'
-                f'padding:.5rem .8rem;margin-bottom:4px;font-size:12px;color:rgba(255,255,255,.7)">'
-                f'✅ {nome_sb}</div>',
-                unsafe_allow_html=True)
-        if st.button("🔗 Integrações Google", key="nav_integracoes"):
+        if st.button("Integrações Google", key="nav_integracoes"):
             st.session_state["page"] = "integracoes"
 
-        st.markdown("---")
+        # ── Divider + Sair ────────────────────────────────────────────────────
+        st.markdown('<div class="sb-divider"></div>', unsafe_allow_html=True)
         if st.button("Sair", key="nav_sair"):
-            for k in list(st.session_state.keys()): del st.session_state[k]
+            # Limpa só o estado de usuário — mantém page etc limpando tudo
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
             st.rerun()
 
 
@@ -3050,38 +3402,107 @@ def page_integracoes():
 def main():
     st.markdown(SUNNE_CSS, unsafe_allow_html=True)
 
+    # ── SESSÃO PERSISTENTE ────────────────────────────────────────────────────
+    # Usa st.session_state que persiste enquanto a aba do browser estiver aberta.
+    # Se o usuário estiver salvo no session_state, não pede login novamente.
+    # O login só é limpo quando clica em "Sair".
+
     if "user" not in st.session_state:
-        _, mid, _ = st.columns([1, 1.4, 1])
-        with mid:
-            st.markdown("<div style='margin-top:8vh'>", unsafe_allow_html=True)
-            try:
-                st.image("https://ops.sunne.com.br/static/media/logo-sunne.9e4fbe.png", width=110)
-            except:
-                st.markdown("### ☀️ Sunne")
-            st.markdown('<p style="font-family:\'Instrument Serif\',serif;font-size:1.6rem;color:#33001A;margin-bottom:.2rem">Hub Operacional</p>', unsafe_allow_html=True)
-            st.markdown('<p style="font-size:13px;color:#5A3040;margin-bottom:1.5rem">Plataforma de gestão de geração distribuída</p>', unsafe_allow_html=True)
-            with st.form("login"):
-                e = st.text_input("E-mail", placeholder="seu@sunne.com.br")
-                s = st.text_input("Senha", type="password")
-                if st.form_submit_button("Entrar", use_container_width=True):
-                    u = authenticate(e, s)
-                    if u:
-                        st.session_state["user"] = u
-                        st.session_state.setdefault("page","dash")
-                        st.rerun()
-                    else:
-                        st.error("Credenciais inválidas.")
-            st.markdown("</div>", unsafe_allow_html=True)
+        # ── Tela de login premium ─────────────────────────────────────────────
+        st.markdown("""
+        <style>
+        [data-testid="stAppViewContainer"] {
+          background: linear-gradient(135deg, #220012 0%, #33001A 55%, #4D0028 100%) !important;
+          min-height: 100vh;
+        }
+        [data-testid="stSidebar"] { display: none !important; }
+        .block-container { padding: 0 !important; max-width: 100% !important; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        _, centro, _ = st.columns([1, 1.1, 1])
+        with centro:
+            st.markdown("<div style='height:8vh'></div>", unsafe_allow_html=True)
+
+            # Card de login
+            st.markdown("""
+            <div style="background:rgba(255,255,255,.97);border-radius:24px;
+              padding:3rem 2.8rem 2.5rem;box-shadow:0 32px 80px rgba(0,0,0,.4);">
+
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:.5rem">
+                <div style="width:40px;height:40px;background:linear-gradient(135deg,#F36E21,#D45E18);
+                  border-radius:10px;display:flex;align-items:center;justify-content:center;
+                  font-size:20px">☀️</div>
+                <div>
+                  <div style="font-family:'Playfair Display',serif;font-size:1.5rem;
+                    color:#33001A;font-weight:500;line-height:1">Sunne</div>
+                  <div style="font-size:10px;color:#9B7080;letter-spacing:.12em;
+                    text-transform:uppercase">Hub Operacional</div>
+                </div>
+              </div>
+
+              <div style="height:1px;background:rgba(51,0,26,.08);margin:1.5rem 0"></div>
+
+              <p style="font-size:13px;color:#5C3545;margin-bottom:1.8rem;line-height:1.5">
+                Acesse sua plataforma de gestão de geração distribuída.
+              </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.form("login_form"):
+                st.markdown('<p style="font-size:11px;font-weight:700;color:#5C3545;'
+                            'text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">'
+                            'E-mail</p>', unsafe_allow_html=True)
+                email_inp = st.text_input("", placeholder="seu@sunne.com.br",
+                                          label_visibility="collapsed", key="login_email")
+                st.markdown('<p style="font-size:11px;font-weight:700;color:#5C3545;'
+                            'text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;'
+                            'margin-top:.8rem">Senha</p>', unsafe_allow_html=True)
+                senha_inp = st.text_input("", type="password",
+                                          label_visibility="collapsed", key="login_senha")
+                st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
+                btn_entrar = st.form_submit_button("Entrar", use_container_width=True)
+
+            if btn_entrar:
+                u = authenticate(email_inp, senha_inp)
+                if u:
+                    st.session_state["user"] = u
+                    st.session_state.setdefault("page", "dash")
+                    st.rerun()
+                else:
+                    st.markdown(
+                        '<div class="alert alert-r" style="border-radius:12px;margin-top:.5rem">'
+                        '❌ E-mail ou senha incorretos.</div>',
+                        unsafe_allow_html=True)
+
+            st.markdown(
+                '<p style="text-align:center;font-size:11px;color:rgba(255,255,255,.3);'
+                'margin-top:1.5rem">© 2025 Sunne · Gestão de Energia Solar</p>',
+                unsafe_allow_html=True)
         return
 
-    # ── Auto-agendamento 08h captura faturas ─────────────────────────────────
+    # ── OAuth Google: troca code na URL ──────────────────────────────────────
+    params = st.query_params
+    if "code" in params and not load_google_tokens().get("access_token"):
+        with st.spinner("🔗 Conectando com o Google…"):
+            tokens = _google_exchange_code(params["code"])
+        if tokens.get("access_token"):
+            save_google_tokens(tokens)
+            st.query_params.clear()
+            nome_g = tokens.get("_google_name","")
+            st.toast(f"✅ Google conectado! Olá, {nome_g}! 👋", icon="🎉")
+            st.rerun()
+        else:
+            st.query_params.clear()
+            st.error("Não foi possível conectar. Tente novamente em Integrações.")
+
+    # ── Auto-agendamentos ─────────────────────────────────────────────────────
     if ROBOT_DISPONIVEL and _robot.verificar_agendamento():
         if not st.session_state.get("robot_rodando", False):
             st.session_state["robot_rodando"]      = True
             st.session_state["robot_auto_trigger"] = True
             st.session_state["page"]               = "automacao"
 
-    # ── Auto-agendamento 07h sync rateios sunne ───────────────────────────────
     if RATEIO_BOT_OK and _rateio_bot.verificar_agendamento_rateio():
         if not st.session_state.get("rateio_bot_rodando", False):
             st.session_state["rateio_bot_rodando"] = True
