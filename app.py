@@ -897,45 +897,59 @@ def dialog_bi_dashboard(analise_key, comp):
 # ═══════════════════════════════════════════════════════════════════
 
 def _google_auth_url() -> str:
+    """Gera URL de autorização Google. Client ID configurado 1x nos secrets pela TI."""
+    import urllib.parse
     try:
         client_id = st.secrets["google"]["client_id"]
     except Exception:
         client_id = os.environ.get("GOOGLE_CLIENT_ID","")
     if not client_id:
-        return "#"
-    import urllib.parse
-    scopes   = ("https://www.googleapis.com/auth/calendar.readonly "
-                "https://www.googleapis.com/auth/gmail.send")
-    redirect = "https://performance-sunne.streamlit.app"
-    params   = urllib.parse.urlencode({
-        "client_id":     client_id,
-        "redirect_uri":  redirect,
-        "response_type": "code",
-        "scope":         scopes,
-        "access_type":   "offline",
-        "prompt":        "consent",
-        "state":         "sunne_oauth",
+        return ""
+    redirect = os.environ.get("GOOGLE_REDIRECT_URI","https://performance-sunne.streamlit.app")
+    scopes = " ".join([
+        "openid",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/gmail.send",
+    ])
+    params = urllib.parse.urlencode({
+        "client_id": client_id, "redirect_uri": redirect,
+        "response_type": "code", "scope": scopes,
+        "access_type": "offline", "prompt": "consent",
     })
     return f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
 
 def _google_exchange_code(code: str) -> dict:
+    """Troca o code de autorização por access_token + busca nome/email do usuário."""
     import urllib.request, urllib.parse
     try:
         client_id     = st.secrets["google"]["client_id"]
         client_secret = st.secrets["google"]["client_secret"]
     except Exception:
         return {}
-    redirect = "https://performance-sunne.streamlit.app"
+    redirect = os.environ.get("GOOGLE_REDIRECT_URI","https://performance-sunne.streamlit.app")
     data = urllib.parse.urlencode({
         "code": code, "client_id": client_id, "client_secret": client_secret,
         "redirect_uri": redirect, "grant_type": "authorization_code"
     }).encode()
-    req = urllib.request.Request("https://oauth2.googleapis.com/token",
-                                 data=data, method="POST")
-    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    req = urllib.request.Request("https://oauth2.googleapis.com/token", data=data, method="POST")
+    req.add_header("Content-Type","application/x-www-form-urlencoded")
     try:
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return json.loads(r.read())
+        with urllib.request.urlopen(req, timeout=15) as r:
+            tokens = json.loads(r.read())
+        # Busca nome + email do usuário Google para exibir na UI
+        try:
+            uinfo_req = urllib.request.Request("https://www.googleapis.com/oauth2/v2/userinfo")
+            uinfo_req.add_header("Authorization", f"Bearer {tokens['access_token']}")
+            with urllib.request.urlopen(uinfo_req, timeout=10) as ur:
+                uinfo = json.loads(ur.read())
+                tokens["_google_name"]  = uinfo.get("name","")
+                tokens["_google_email"] = uinfo.get("email","")
+                tokens["_google_pic"]   = uinfo.get("picture","")
+        except Exception:
+            pass
+        return tokens
     except Exception:
         return {}
 
@@ -1035,6 +1049,14 @@ def render_sidebar():
             st.session_state["page"] = "automacao"
 
         st.markdown('<div class="sec-label">Config</div>', unsafe_allow_html=True)
+        goog_sb = load_google_tokens()
+        if goog_sb.get("access_token"):
+            nome_sb = goog_sb.get("_google_name","Google")
+            st.markdown(
+                f'<div style="background:rgba(255,255,255,.06);border-radius:8px;'
+                f'padding:.5rem .8rem;margin-bottom:4px;font-size:12px;color:rgba(255,255,255,.7)">'
+                f'✅ {nome_sb}</div>',
+                unsafe_allow_html=True)
         if st.button("🔗 Integrações Google", key="nav_integracoes"):
             st.session_state["page"] = "integracoes"
 
@@ -1052,14 +1074,20 @@ def page_dashboard():
     user = st.session_state["user"]; an = user["name"]
     st.title("Dashboard")
 
-    # ── Troca OAuth code se presente na URL ──────────────────────────────────
+    # ── Troca OAuth code se presente na URL (retorno do Google) ──────────────
     params = st.query_params
     if "code" in params and not load_google_tokens().get("access_token"):
-        tokens = _google_exchange_code(params["code"])
+        with st.spinner("🔗 Conectando com o Google…"):
+            tokens = _google_exchange_code(params["code"])
         if tokens.get("access_token"):
             save_google_tokens(tokens)
             st.query_params.clear()
-            st.success("✅ Google conectado com sucesso!")
+            nome_g = tokens.get("_google_name","")
+            st.toast(f"✅ Google conectado! Olá, {nome_g}! 👋", icon="🎉")
+            st.rerun()
+        else:
+            st.query_params.clear()
+            st.error("Não foi possível conectar com o Google. Tente novamente em Integrações.")
 
     gers    = [g for g in load_geradores() if g.get("analista","").lower() == an.lower()]
     usis    = [u for u in load_usinas()    if u.get("analista","").lower() == an.lower()]
@@ -1189,55 +1217,76 @@ def page_geradores():
 
     with tc:
         minha = [g for g in load_geradores() if g.get("analista","").lower() == an.lower()]
-        if not minha: st.info("Nenhum gerador cadastrado."); return
-        conc = {g.get("concessionaria","") for g in minha if g.get("concessionaria","")}
-        tot  = sum(int(g.get("usinas",0) or 0) for g in minha)
-        c1, c2, c3 = st.columns(3)
-        for col, lbl, val in zip([c1,c2,c3],
-            ["Geradores","Concessionárias","Usinas Totais"],[len(minha),len(conc),tot]):
-            col.markdown(
-                f'<div class="kpi-box"><div class="kpi-value">{val}</div>'
-                f'<div class="kpi-label">{lbl}</div></div>', unsafe_allow_html=True)
-        st.write("")
-        filtro = st.selectbox("Concessionária", ["Todas"] + sorted(conc))
-        lista  = minha if filtro == "Todas" else [g for g in minha if g.get("concessionaria") == filtro]
-        df_s   = pd.DataFrame(lista)
-        cols_s = [c for c in ["gerador","contato","concessionaria","usinas","porte","origem",
-                               "enquadramento","pct_desconto_gerador","pct_taxa_admin"] if c in df_s.columns]
-        df_s   = df_s[cols_s]
-        df_s.columns = [{"pct_desconto_gerador":"% Desc.","pct_taxa_admin":"% Admin",
-                          "enquadramento":"GD"}.get(c, c.capitalize()) for c in cols_s]
-        st.dataframe(df_s, use_container_width=True, hide_index=True)
+        if not minha:
+            st.info("Nenhum gerador cadastrado. Use as abas **Importar** ou **Adicionar Manual**.")
+        else:
+            conc = {g.get("concessionaria","") for g in minha if g.get("concessionaria","")}
+            tot  = sum(int(g.get("usinas",0) or 0) for g in minha)
+            c1, c2, c3 = st.columns(3)
+            for col, lbl, val in zip([c1,c2,c3],
+                ["Geradores","Concessionárias","Usinas Totais"],[len(minha),len(conc),tot]):
+                col.markdown(
+                    f'<div class="kpi-box"><div class="kpi-value">{val}</div>'
+                    f'<div class="kpi-label">{lbl}</div></div>', unsafe_allow_html=True)
+            st.write("")
+            filtro = st.selectbox("Concessionária", ["Todas"] + sorted(conc))
+            lista  = minha if filtro == "Todas" else [g for g in minha if g.get("concessionaria") == filtro]
+            df_s   = pd.DataFrame(lista)
+            cols_s = [c for c in ["gerador","contato","concessionaria","usinas","porte","origem",
+                                   "enquadramento","pct_desconto_gerador","pct_taxa_admin"] if c in df_s.columns]
+            df_s   = df_s[cols_s]
+            df_s.columns = [{"pct_desconto_gerador":"% Desc.","pct_taxa_admin":"% Admin",
+                              "enquadramento":"GD"}.get(c, c.capitalize()) for c in cols_s]
+            st.dataframe(df_s, use_container_width=True, hide_index=True)
 
     with ti:
-        st.caption("Colunas obrigatórias: **Gerador · Analista** | Opcionais: Contato · Concessionária · "
-                   "Usinas · Porte · Origem · Enquadramento · pct_desconto_gerador · pct_taxa_admin")
-        f = st.file_uploader("Arquivo (.xlsx / .csv)", type=["xlsx","xls","csv"], key="up_ger_v9")
-        if f:
-            if st.button("✅ Importar Geradores", key="btn_sg_v9"):
+        st.markdown("#### Importar Planilha de Geradores")
+        st.markdown(
+            "Colunas obrigatórias: **Gerador · Analista**  \n"
+            "Opcionais: Contato · Concessionária · Usinas · Porte · Origem · "
+            "Enquadramento (GD1/GD2) · pct_desconto_gerador · pct_taxa_admin")
+        st.write("")   # garante render antes do uploader
+        arquivo_ger = st.file_uploader(
+            "Selecione o arquivo (.xlsx ou .csv)",
+            type=["xlsx","xls","csv"],
+            key="up_ger_v10",
+            help="A planilha deve ter pelo menos a coluna 'Gerador'")
+        if arquivo_ger is not None:
+            st.success(f"📄 Arquivo carregado: **{arquivo_ger.name}**")
+            if st.button("✅ Importar Geradores", key="btn_sg_v10", use_container_width=True):
                 try:
-                    df = pd.read_excel(f, dtype=str) if not f.name.endswith(".csv") else pd.read_csv(f, dtype=str)
+                    if arquivo_ger.name.endswith(".csv"):
+                        df = pd.read_csv(arquivo_ger, dtype=str)
+                    else:
+                        df = pd.read_excel(arquivo_ger, dtype=str)
                     df.columns = df.columns.str.strip().str.lower()
                     df.rename(columns={"concessionária":"concessionaria"}, inplace=True)
                     df = df.fillna("")
-                    ex = load_geradores(); nex = {g["gerador"].lower() for g in ex}; n = 0
+                    ex = load_geradores()
+                    nex = {g["gerador"].lower() for g in ex}
+                    n = 0
                     for _, row in df.iterrows():
                         nm = str(row.get("gerador","")).strip()
                         if nm and nm.lower() not in nex:
                             rec = {k: str(row.get(k,"")) for k in
                                    ["gerador","contato","analista","concessionaria","usinas","porte","origem"]}
-                            rec["enquadramento"]         = str(row.get("enquadramento","GD1"))
-                            rec["pct_desconto_gerador"]  = str(row.get("pct_desconto_gerador","0.20"))
-                            rec["pct_taxa_admin"]        = str(row.get("pct_taxa_admin","0.07"))
-                            if not rec["analista"]: rec["analista"] = an
-                            ex.append(rec); nex.add(nm.lower()); n += 1
+                            rec["enquadramento"]        = str(row.get("enquadramento","GD1"))
+                            rec["pct_desconto_gerador"] = str(row.get("pct_desconto_gerador","0.20"))
+                            rec["pct_taxa_admin"]       = str(row.get("pct_taxa_admin","0.07"))
+                            if not rec["analista"].strip():
+                                rec["analista"] = an
+                            ex.append(rec)
+                            nex.add(nm.lower())
+                            n += 1
                     save_geradores(ex)
-                    st.success(f"✅ {n} gerador(es) importado(s).")
+                    st.success(f"✅ {n} gerador(es) importado(s) com sucesso!")
                     st.rerun()
-                except Exception as e: st.error(str(e))
+                except Exception as e:
+                    st.error(f"Erro ao importar: {e}")
+                    st.code(traceback.format_exc())
 
     with tm_add:
-        st.markdown("**Adicionar Gerador Manualmente**")
+        st.markdown("#### Adicionar Gerador Manualmente")
         with st.form("form_add_ger", clear_on_submit=True):
             ag1, ag2 = st.columns(2)
             nm_ger  = ag1.text_input("Nome do Gerador *")
@@ -1247,10 +1296,10 @@ def page_geradores():
             porte   = ag4.text_input("Porte")
             origem  = ag5.text_input("Origem")
             ag6, ag7, ag8 = st.columns(3)
-            enq_g   = ag6.selectbox("Enquadramento", list(TARIFAS_BASE.keys()))
-            desc_g  = ag7.number_input("% Desconto Gerador", 0.0, 1.0, 0.20, 0.01, format="%.2f")
-            taxa_g  = ag8.number_input("% Taxa Admin Sunne",  0.0, 1.0, 0.07, 0.01, format="%.2f")
-            salvar_g = st.form_submit_button("Salvar Gerador", use_container_width=True)
+            enq_g  = ag6.selectbox("Enquadramento", list(TARIFAS_BASE.keys()))
+            desc_g = ag7.number_input("% Desconto Gerador", 0.0, 1.0, 0.20, 0.01, format="%.2f")
+            taxa_g = ag8.number_input("% Taxa Admin Sunne",  0.0, 1.0, 0.07, 0.01, format="%.2f")
+            salvar_g = st.form_submit_button("💾 Salvar Gerador", use_container_width=True)
         if salvar_g:
             if not nm_ger.strip():
                 st.warning("Nome do gerador obrigatório.")
@@ -1265,7 +1314,8 @@ def page_geradores():
                                 "pct_desconto_gerador":float(desc_g),
                                 "pct_taxa_admin":float(taxa_g)})
                     save_geradores(ex)
-                    st.success(f"✅ Gerador '{nm_ger}' cadastrado!"); st.rerun()
+                    st.success(f"✅ Gerador '{nm_ger}' cadastrado!")
+                    st.rerun()
 
 
 def page_usinas():
@@ -2901,44 +2951,100 @@ def _render_log_table(container, entries: list):
 # ═══════════════════════════════════════════════════════════════════
 
 def page_integracoes():
-    st.title("🔗 Integrações Google")
-    st.markdown("Conecte sua conta Google para enviar e-mails pelo Hub e visualizar reuniões no Dashboard.")
+    st.title("🔗 Conectar com o Google")
 
     goog = load_google_tokens()
 
+    # ── Já conectado ──────────────────────────────────────────────────────────
     if goog.get("access_token"):
-        st.markdown('<div class="alert alert-g">✅ Google conectado.</div>', unsafe_allow_html=True)
-        st.caption("Permissões ativas: Gmail (envio) · Google Calendar (leitura)")
-        if st.button("🔌 Desconectar Google"):
+        nome_g  = goog.get("_google_name","")
+        email_g = goog.get("_google_email","")
+        pic_g   = goog.get("_google_pic","")
+
+        st.markdown('<div class="alert alert-g">✅ Sua conta Google está conectada ao Hub.</div>',
+                    unsafe_allow_html=True)
+        st.write("")
+
+        if pic_g:
+            gc1, gc2 = st.columns([1, 6])
+            gc1.image(pic_g, width=60)
+            gc2.markdown(f"**{nome_g}**  \n{email_g}")
+        else:
+            st.markdown(f"**{nome_g}** · {email_g}")
+
+        st.write("")
+        st.markdown("**O que está disponível agora:**")
+        st.markdown("- 📧 Enviar e-mails para geradores direto do card de atividade\n"
+                    "- 📅 Ver suas reuniões do Google Calendar no Dashboard\n"
+                    "- 📌 Criar eventos no Calendar a partir de atividades programadas")
+
+        st.write("")
+        if st.button("🔌 Desconectar conta Google", key="btn_google_disc"):
             save_google_tokens({})
-            st.success("Desconectado."); st.rerun()
-    else:
-        st.markdown('<div class="alert alert-y">⚠️ Google não conectado.</div>', unsafe_allow_html=True)
-        st.markdown("**Passo 1** — Configure seus secrets no Streamlit Cloud:")
-        st.code("""# .streamlit/secrets.toml
-[google]
-client_id     = "SEU_CLIENT_ID.apps.googleusercontent.com"
-client_secret = "SEU_CLIENT_SECRET"
-""", language="toml")
-        st.markdown("**Passo 2** — No Google Cloud Console, ative as APIs: Gmail API e Google Calendar API, e adicione `https://performance-sunne.streamlit.app/` como redirect URI.")
-        st.markdown("**Passo 3** — Clique no botão abaixo para autorizar:")
+            st.success("Conta desconectada.")
+            st.rerun()
+        return
 
+    # ── Não conectado: UI simples para o analista ─────────────────────────────
+    _, centro, _ = st.columns([1, 3, 1])
+    with centro:
+        st.write("")
+        st.markdown(
+            '<div style="text-align:center;padding:2rem 1rem">'
+            '<div style="font-size:48px;margin-bottom:1rem">📅</div>'
+            '<h2 style="color:#33001A;margin-bottom:.5rem">Conectar com o Google</h2>'
+            '<p style="color:#5A3040;font-size:14px;margin-bottom:2rem">'
+            'Clique no botão abaixo, faça login com sua conta Google<br>'
+            'e autorize o acesso. É rápido e seguro.</p>'
+            '</div>',
+            unsafe_allow_html=True)
+
+        # Verifica se o client_id foi configurado
         try:
-            auth_url = _google_auth_url()
-            st.markdown(
-                f'<a href="{auth_url}" target="_self" style="display:inline-block;'
-                f'background:#F36E21;color:white;padding:.6rem 1.4rem;border-radius:8px;'
-                f'font-size:14px;font-weight:500;text-decoration:none;margin-top:.5rem">'
-                f'🔗 Conectar Google</a>',
-                unsafe_allow_html=True)
+            _ = st.secrets["google"]["client_id"]
+            secrets_ok = True
         except Exception:
-            st.warning("Configure `client_id` em `.streamlit/secrets.toml` antes de conectar.")
+            secrets_ok = False
 
-    st.divider()
-    st.markdown("**Funcionalidades desbloqueadas após conexão:**")
-    st.markdown("- 📧 Envio de e-mails para geradores diretamente do card de atividade\n"
-                "- 📅 Visualização de reuniões do Google Calendar no Dashboard\n"
-                "- 📌 Criação de eventos no Calendar a partir de atividades programadas")
+        if secrets_ok:
+            auth_url = _google_auth_url()
+            if auth_url:
+                st.markdown(
+                    f'<div style="text-align:center">'
+                    f'<a href="{auth_url}" target="_self" style="'
+                    f'display:inline-flex;align-items:center;gap:10px;'
+                    f'background:#F36E21;color:white;padding:.8rem 2rem;'
+                    f'border-radius:10px;font-size:16px;font-weight:600;'
+                    f'text-decoration:none;box-shadow:0 2px 12px rgba(243,110,33,.35);'
+                    f'transition:all .2s">'
+                    f'<svg width="20" height="20" viewBox="0 0 48 48">'
+                    f'<path fill="#fff" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>'
+                    f'</svg>'
+                    f'Conectar com o Google</a></div>',
+                    unsafe_allow_html=True)
+                st.write("")
+                st.caption("🔒 Suas credenciais são gerenciadas pelo Google. "
+                           "O Hub Sunne não armazena sua senha.")
+            else:
+                st.error("Erro ao gerar link de autorização.")
+        else:
+            # Modo de demonstração / sem secrets configurados
+            st.markdown(
+                '<div class="alert alert-y">⚙️ <b>Configuração necessária (apenas uma vez, pela equipe técnica):</b><br><br>'
+                'Adicione no Streamlit Cloud → Settings → Secrets:<br><br>'
+                '<code>[google]<br>'
+                'client_id     = "SEU_CLIENT_ID.apps.googleusercontent.com"<br>'
+                'client_secret = "SEU_CLIENT_SECRET"</code><br><br>'
+                'Após isso, qualquer analista poderá conectar com 1 clique.</div>',
+                unsafe_allow_html=True)
+
+        st.write("")
+        st.markdown(
+            '<div style="text-align:center;font-size:12px;color:#999">'
+            'Após clicar, você será redirecionado para a página do Google.<br>'
+            'Selecione sua conta de trabalho e clique em <b>Permitir</b>.'
+            '</div>',
+            unsafe_allow_html=True)
 
 
 def main():
