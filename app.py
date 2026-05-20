@@ -1496,7 +1496,7 @@ def page_dashboard():
                 c = clean_val(r.get("consumo_total",0)); s = clean_val(r.get("saldo_credito",0))
                 if c > 0 and s/c > 6:
                     ui = next((x for x in usis if str(x["uc"]) == str(uc)), {})
-                    alerts.append(("y", f"💰 Usina <b>{ui.get('ufv',uc)}</b>: saldo acumulado > 6 meses."))
+                    alerts.append(("y", f" Usina <b>{ui.get('ufv',uc)}</b>: saldo acumulado > 6 meses."))
         if not alerts:
             st.markdown('<div class="alert alert-g">✅ Nenhum alerta operacional.</div>', unsafe_allow_html=True)
         else:
