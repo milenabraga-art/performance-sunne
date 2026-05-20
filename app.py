@@ -80,7 +80,11 @@ html, body, [class*="css"] {
 [data-testid="stMain"] {
   background: var(--bg);
 }
-#MainMenu, footer, header { visibility: hidden; }
+/* Remove o menu padrão e o rodapé, mas mantém o botão de abrir/fechar a sidebar visível */
+#MainMenu, footer { visibility: hidden; }
+[data-testid="stHeader"] {
+    background: transparent !important;
+}
 .block-container {
   padding: 2rem 2.5rem 4rem !important;
   max-width: 1400px !important;
