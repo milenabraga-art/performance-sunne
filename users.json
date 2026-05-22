@@ -7,14 +7,14 @@
       "role": "admin"
     },
     {
-      "name": "Analista",
-      "email": "analista@sunne.com.br",
-      "password": "sunne2026",
-      "role": "user"
-    },
-    {
       "name": "Milena",
       "email": "milena@sunne.com.br",
+      "password": "sunne2026",
+      "role": "admin"
+    },
+    {
+      "name": "Analista",
+      "email": "analista@sunne.com.br",
       "password": "sunne2026",
       "role": "user"
     }
