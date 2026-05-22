@@ -20,7 +20,7 @@ except Exception as _rateio_bot_err:
 
 # ── PAGE CONFIG ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Sunne · Hub Operacional",
+    page_title="Sunne · Hub Operacional v12",
     page_icon="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -29,496 +29,705 @@ st.set_page_config(
 # ── CSS PREMIUM SUNNE ─────────────────────────────────────────────────────────
 SUNNE_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&family=Playfair+Display:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
+
+/* ════════════════════════════════════════════════════════════════
+   SUNNE HUB v12 — Design System
+   Aesthetic: Pro Dark · Linear/Vercel-grade · Precision data UI
+   ════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Marca Sunne */
-  --rubi:        #33001A;
-  --rubi-d:      #220012;
-  --rubi-l:      #4D0028;
-  --rubi-xl:     #6B0038;
-  --gold:        #F36E21;
-  --gold-d:      #D45E18;
-  --gold-l:      rgba(243,110,33,.10);
-  --gold-xl:     rgba(243,110,33,.05);
+  /* ── Core surfaces ── */
+  --bg:          #0A0A0F;
+  --bg-2:        #0F0F17;
+  --surface:     #13131C;
+  --surface-2:   #18182A;
+  --surface-3:   #1E1E30;
+  --overlay:     rgba(255,255,255,.03);
 
-  /* Superfícies */
-  --bg:          #F8F4F1;
-  --bg-alt:      #F2EDE9;
-  --surface:     #FFFFFF;
-  --surface-2:   #FDF9F7;
+  /* ── Brand ── */
+  --orange:      #F36E21;
+  --orange-d:    #D45E14;
+  --orange-glow: rgba(243,110,33,.18);
+  --orange-dim:  rgba(243,110,33,.10);
+  --orange-xs:   rgba(243,110,33,.06);
 
-  /* Texto */
-  --ink:         #1C0F14;
-  --ink-m:       #5C3545;
-  --ink-l:       #9B7080;
+  /* ── Accent ── */
+  --accent:      #6366F1;
+  --accent-d:    #4F52D9;
+  --accent-dim:  rgba(99,102,241,.12);
 
-  /* Bordas e sombras */
-  --border:      rgba(51,0,26,.08);
-  --border-m:    rgba(51,0,26,.14);
-  --shadow-s:    0 1px 4px rgba(51,0,26,.06);
-  --shadow:      0 2px 12px rgba(51,0,26,.08);
-  --shadow-m:    0 4px 24px rgba(51,0,26,.10);
-  --shadow-l:    0 8px 48px rgba(51,0,26,.14);
+  /* ── Text ── */
+  --text-1:      #F0F0FF;
+  --text-2:      #A0A0C0;
+  --text-3:      #606080;
+  --text-4:      #3A3A58;
 
-  /* Radii */
-  --r-s:   6px;
-  --r:     12px;
-  --r-l:   18px;
-  --r-xl:  24px;
+  /* ── Borders ── */
+  --border:      rgba(255,255,255,.06);
+  --border-m:    rgba(255,255,255,.10);
+  --border-h:    rgba(255,255,255,.16);
+
+  /* ── Status ── */
+  --red:         #F43F5E;
+  --red-dim:     rgba(244,63,94,.12);
+  --amber:       #F59E0B;
+  --amber-dim:   rgba(245,158,11,.12);
+  --green:       #10B981;
+  --green-dim:   rgba(16,185,129,.12);
+  --blue:        #3B82F6;
+  --blue-dim:    rgba(59,130,246,.12);
+
+  /* ── Shadows ── */
+  --shadow-s:    0 1px 3px rgba(0,0,0,.4);
+  --shadow:      0 4px 16px rgba(0,0,0,.5);
+  --shadow-m:    0 8px 32px rgba(0,0,0,.6);
+  --shadow-l:    0 20px 60px rgba(0,0,0,.7);
+  --glow-o:      0 0 24px rgba(243,110,33,.22);
+  --glow-a:      0 0 24px rgba(99,102,241,.18);
+
+  /* ── Radii ── */
+  --r-xs: 4px;
+  --r-s:  6px;
+  --r:    10px;
+  --r-l:  14px;
+  --r-xl: 20px;
 }
 
-/* ── Reset & base ── */
+/* ── Reset & base ───────────────────────────────────────────────── */
 html, body, [class*="css"] {
-  font-family: 'DM Sans', sans-serif;
-  color: var(--ink);
-  -webkit-font-smoothing: antialiased;
+  font-family: 'Geist', 'SF Pro Display', -apple-system, sans-serif !important;
+  color: var(--text-1) !important;
+  -webkit-font-smoothing: antialiased !important;
+  text-rendering: optimizeLegibility !important;
 }
-[data-testid="stAppViewContainer"] {
-  background: var(--bg);
-}
-[data-testid="stMain"] {
-  background: var(--bg);
-}
-/* Remove o menu padrão e o rodapé, mas mantém o botão de abrir/fechar a sidebar visível */
-#MainMenu, footer { visibility: hidden; }
-[data-testid="stHeader"] {
-    background: transparent !important;
-}
+[data-testid="stAppViewContainer"] { background: var(--bg) !important; }
+[data-testid="stMain"]             { background: var(--bg) !important; }
+#MainMenu, footer, header          { visibility: hidden; }
 .block-container {
   padding: 2rem 2.5rem 4rem !important;
-  max-width: 1400px !important;
+  max-width: 1440px !important;
 }
 
-/* ── Sidebar premium ── */
+/* ── Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar              { width: 4px; height: 4px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: var(--border-m); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--border-h); }
+
+/* ════════════════════════════════════════════════════════════════
+   SIDEBAR
+   ════════════════════════════════════════════════════════════════ */
 [data-testid="stSidebar"] {
-  background: var(--rubi-d) !important;
-  border-right: 1px solid rgba(255,255,255,.04) !important;
-  box-shadow: 4px 0 32px rgba(0,0,0,.18) !important;
+  background: var(--bg-2) !important;
+  border-right: 1px solid var(--border) !important;
+  box-shadow: none !important;
 }
 [data-testid="stSidebar"] > div { padding: 0 !important; }
 
-/* Remove padrão dos botões do sidebar */
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
   background: transparent !important;
   border: none !important;
   padding: 0 !important;
-  margin-bottom: 2px !important;
+  margin-bottom: 1px !important;
   width: 100% !important;
-  display: flex !important;
-  justify-content: flex-start !important;
   box-shadow: none !important;
   border-radius: var(--r-s) !important;
-  transition: all .15s ease !important;
+  transition: background .12s ease !important;
 }
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
-  background: rgba(255,255,255,.07) !important;
+  background: var(--overlay) !important;
 }
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] p {
-  color: rgba(255,255,255,.72) !important;
-  font-size: 13.5px !important;
+  color: var(--text-2) !important;
+  font-size: 13px !important;
   font-weight: 400 !important;
-  letter-spacing: .01em;
-  padding: 5px 2px !important;
+  letter-spacing: -.01em !important;
+  padding: 5px 4px !important;
+  transition: color .12s !important;
 }
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover p {
-  color: #fff !important;
-  font-weight: 500 !important;
+  color: var(--text-1) !important;
 }
 
-/* ── Tipografia de título ── */
+/* ── Sidebar components ─────────────────────────────────────────── */
+.sb-brand {
+  padding: 1.5rem 1.2rem .9rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: .4rem;
+  display: flex; align-items: center; gap: 10px;
+}
+.sb-brand-icon {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--orange), var(--orange-d));
+  border-radius: var(--r-s);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  box-shadow: var(--glow-o);
+  flex-shrink: 0;
+}
+.sb-brand-wrap { display: flex; flex-direction: column; }
+.sb-brand-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 1rem; font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -.02em;
+  line-height: 1;
+}
+.sb-brand-sub {
+  font-size: 9px; color: var(--text-3);
+  letter-spacing: .12em; text-transform: uppercase; margin-top: 2px;
+}
+.sb-user {
+  margin: 0 .7rem .6rem;
+  background: var(--overlay);
+  border-radius: var(--r);
+  padding: .6rem .8rem;
+  border: 1px solid var(--border);
+}
+.sb-user-name  { font-size: 12.5px; color: var(--text-1); font-weight: 500; }
+.sb-user-role  { font-size: 9.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; margin-top: 1px; }
+.sb-google-badge {
+  margin: 0 .7rem .4rem;
+  background: rgba(16,185,129,.08);
+  border: 1px solid rgba(16,185,129,.18);
+  border-radius: var(--r-s); padding: .35rem .7rem;
+  font-size: 11px; color: var(--green);
+}
+.sec-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--text-4);
+  margin-bottom: 2px; margin-top: 14px; padding-left: .9rem;
+}
+.sb-divider { height: 1px; background: var(--border); margin: .4rem .7rem; }
+
+/* ════════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+   ════════════════════════════════════════════════════════════════ */
 h1 {
-  font-family: 'Playfair Display', serif !important;
-  font-size: 1.9rem !important;
-  font-weight: 500 !important;
-  color: var(--rubi) !important;
-  letter-spacing: -.02em !important;
-  margin-bottom: .15rem !important;
-  line-height: 1.15 !important;
+  font-family: 'Syne', sans-serif !important;
+  font-size: 1.65rem !important; font-weight: 700 !important;
+  color: var(--text-1) !important;
+  letter-spacing: -.03em !important;
+  margin-bottom: .1rem !important; line-height: 1.1 !important;
 }
 h2 {
-  font-size: 1.05rem !important;
-  font-weight: 600 !important;
-  color: var(--rubi) !important;
-  letter-spacing: -.01em !important;
+  font-size: 1rem !important; font-weight: 600 !important;
+  color: var(--text-1) !important; letter-spacing: -.02em !important;
 }
 h3 {
-  font-size: .9rem !important;
-  font-weight: 600 !important;
-  color: var(--ink) !important;
+  font-size: .875rem !important; font-weight: 600 !important;
+  color: var(--text-2) !important;
 }
 
-/* ── Botões principais ── */
+/* ════════════════════════════════════════════════════════════════
+   BUTTONS
+   ════════════════════════════════════════════════════════════════ */
 .stButton > button {
-  background: var(--gold) !important;
-  color: white !important;
-  border: none !important;
+  background: var(--orange) !important;
+  color: #fff !important; border: none !important;
   border-radius: var(--r-s) !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
-  padding: .55rem 1.4rem !important;
-  letter-spacing: .02em !important;
-  box-shadow: 0 1px 8px rgba(243,110,33,.28) !important;
-  transition: all .15s ease !important;
+  font-weight: 600 !important; font-size: 13px !important;
+  padding: .5rem 1.2rem !important;
+  letter-spacing: -.01em !important;
+  box-shadow: 0 1px 0 rgba(0,0,0,.3), var(--glow-o) !important;
+  transition: all .14s ease !important;
+  position: relative !important; overflow: hidden !important;
+}
+.stButton > button::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.1) 0%, transparent 100%);
+  pointer-events: none;
 }
 .stButton > button:hover {
-  background: var(--gold-d) !important;
+  background: var(--orange-d) !important;
   transform: translateY(-1px) !important;
-  box-shadow: 0 4px 16px rgba(243,110,33,.35) !important;
+  box-shadow: 0 4px 16px rgba(243,110,33,.4) !important;
 }
-.stButton > button:active {
-  transform: translateY(0) !important;
-}
+.stButton > button:active { transform: translateY(0) !important; }
+
 .stDownloadButton > button {
-  background: var(--rubi) !important;
-  color: white !important;
-  border: none !important;
+  background: var(--surface-2) !important;
+  color: var(--text-2) !important;
+  border: 1px solid var(--border-m) !important;
   border-radius: var(--r-s) !important;
-  font-size: 12.5px !important;
-  font-weight: 500 !important;
-  padding: .45rem 1.1rem !important;
-  box-shadow: 0 1px 6px rgba(51,0,26,.2) !important;
+  font-size: 12.5px !important; font-weight: 500 !important;
+  padding: .42rem 1rem !important;
+  transition: all .14s !important;
+}
+.stDownloadButton > button:hover {
+  background: var(--surface-3) !important;
+  color: var(--text-1) !important;
+  border-color: var(--border-h) !important;
 }
 
-/* ── Inputs e selects ── */
+/* ════════════════════════════════════════════════════════════════
+   INPUTS
+   ════════════════════════════════════════════════════════════════ */
 [data-testid="stTextInput"] input,
 [data-testid="stSelectbox"] > div,
 [data-testid="stNumberInput"] input,
 [data-testid="stTextArea"] textarea {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-m) !important;
   border-radius: var(--r-s) !important;
-  border: 1.5px solid var(--border-m) !important;
-  background: var(--surface) !important;
-  font-size: 13.5px !important;
-  transition: border-color .15s !important;
+  color: var(--text-1) !important;
+  font-size: 13px !important;
+  transition: border-color .14s, box-shadow .14s !important;
 }
 [data-testid="stTextInput"] input:focus,
 [data-testid="stTextArea"] textarea:focus {
-  border-color: var(--gold) !important;
-  box-shadow: 0 0 0 3px rgba(243,110,33,.12) !important;
+  border-color: var(--orange) !important;
+  box-shadow: 0 0 0 3px var(--orange-dim) !important;
+  outline: none !important;
+}
+[data-testid="stSelectbox"] svg { color: var(--text-3) !important; }
+
+/* Labels */
+[data-testid="stTextInput"] label,
+[data-testid="stSelectbox"] label,
+[data-testid="stNumberInput"] label,
+[data-testid="stTextArea"] label,
+[data-testid="stFileUploader"] label {
+  font-size: 11.5px !important; font-weight: 500 !important;
+  color: var(--text-3) !important;
+  letter-spacing: .04em !important; text-transform: uppercase !important;
 }
 
-/* ── Tabs ── */
+/* File uploader */
+[data-testid="stFileUploader"] > div {
+  background: var(--surface-2) !important;
+  border: 1px dashed var(--border-m) !important;
+  border-radius: var(--r) !important;
+  transition: border-color .14s !important;
+}
+[data-testid="stFileUploader"] > div:hover {
+  border-color: var(--orange) !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TABS
+   ════════════════════════════════════════════════════════════════ */
 [data-testid="stTabs"] [role="tablist"] {
-  border-bottom: 1.5px solid var(--border) !important;
-  gap: 0 !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r) !important;
+  padding: 3px !important; gap: 2px !important;
+  margin-bottom: 1.2rem !important;
 }
 [data-testid="stTabs"] button[role="tab"] {
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  color: var(--ink-l) !important;
-  padding: .55rem 1.1rem !important;
-  border-radius: 0 !important;
-  border-bottom: 2px solid transparent !important;
-  transition: all .15s !important;
+  font-size: 12.5px !important; font-weight: 500 !important;
+  color: var(--text-3) !important;
+  border-radius: var(--r-s) !important;
+  padding: .45rem 1rem !important;
+  border: none !important;
+  transition: all .14s !important; letter-spacing: -.01em !important;
 }
 [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
-  color: var(--gold) !important;
-  border-bottom-color: var(--gold) !important;
-  font-weight: 600 !important;
+  background: var(--surface-3) !important;
+  color: var(--text-1) !important; font-weight: 600 !important;
+  box-shadow: var(--shadow-s) !important;
 }
-[data-testid="stTabs"] button[role="tab"]:hover {
-  color: var(--ink) !important;
-}
+[data-testid="stTabs"] button[role="tab"]:hover { color: var(--text-2) !important; }
 
-/* ── Dataframes ── */
+/* ════════════════════════════════════════════════════════════════
+   DATAFRAMES
+   ════════════════════════════════════════════════════════════════ */
 [data-testid="stDataFrame"] {
+  border: 1px solid var(--border) !important;
   border-radius: var(--r) !important;
   overflow: hidden !important;
-  box-shadow: var(--shadow-s) !important;
-  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+}
+[data-testid="stDataFrame"] thead tr th {
+  background: var(--surface-2) !important;
+  color: var(--text-3) !important;
+  font-size: 10.5px !important; font-weight: 600 !important;
+  text-transform: uppercase !important; letter-spacing: .08em !important;
+  border-bottom: 1px solid var(--border-m) !important;
+}
+[data-testid="stDataFrame"] tbody tr td {
+  background: var(--surface) !important;
+  color: var(--text-2) !important;
+  font-size: 12.5px !important;
+  border-bottom: 1px solid var(--border) !important;
+  font-family: 'Geist Mono', monospace !important;
+}
+[data-testid="stDataFrame"] tbody tr:hover td {
+  background: var(--surface-2) !important;
+  color: var(--text-1) !important;
 }
 
-/* ── Expanders ── */
+/* ════════════════════════════════════════════════════════════════
+   EXPANDERS
+   ════════════════════════════════════════════════════════════════ */
 [data-testid="stExpander"] {
+  background: var(--surface) !important;
   border: 1px solid var(--border) !important;
   border-radius: var(--r) !important;
-  background: var(--surface) !important;
-  box-shadow: var(--shadow-s) !important;
+  box-shadow: none !important;
+  transition: border-color .14s !important;
+}
+[data-testid="stExpander"]:hover { border-color: var(--border-m) !important; }
+[data-testid="stExpander"] summary {
+  font-size: 13px !important; font-weight: 500 !important;
+  color: var(--text-2) !important; padding: .7rem 1rem !important;
+}
+[data-testid="stExpander"] summary:hover { color: var(--text-1) !important; }
+
+/* ════════════════════════════════════════════════════════════════
+   PROGRESS / SPINNER
+   ════════════════════════════════════════════════════════════════ */
+[data-testid="stProgress"] > div {
+  background: var(--surface-3) !important;
+  border-radius: 4px !important; overflow: hidden !important;
+}
+[data-testid="stProgress"] > div > div {
+  background: linear-gradient(90deg, var(--orange), var(--orange-d)) !important;
+  border-radius: 4px !important;
+  transition: width .3s ease !important;
 }
 
-/* ══════════════════════════════════════════
-   COMPONENTES CUSTOMIZADOS
-═══════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════
+   METRIC
+   ════════════════════════════════════════════════════════════════ */
+[data-testid="stMetricValue"] {
+  font-family: 'Geist Mono', monospace !important;
+  color: var(--text-1) !important; font-size: 1.6rem !important;
+}
+[data-testid="stMetricLabel"] { color: var(--text-3) !important; font-size: 11px !important; }
 
-/* KPI Card */
+/* ════════════════════════════════════════════════════════════════
+   TOAST
+   ════════════════════════════════════════════════════════════════ */
+[data-testid="stToast"] {
+  background: var(--surface-3) !important;
+  border: 1px solid var(--border-m) !important;
+  border-radius: var(--r) !important;
+  color: var(--text-1) !important;
+  box-shadow: var(--shadow-m) !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CUSTOM COMPONENTS
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── KPI Card ─────────────────────────────────────────────────── */
 .kpi-box {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-l);
-  padding: 1.3rem 1.5rem 1.1rem;
-  box-shadow: var(--shadow);
-  position: relative;
-  overflow: hidden;
-  transition: box-shadow .2s, transform .2s;
+  padding: 1.1rem 1.3rem .9rem;
+  position: relative; overflow: hidden;
+  transition: border-color .18s, box-shadow .18s;
 }
 .kpi-box:hover {
-  box-shadow: var(--shadow-m);
-  transform: translateY(-1px);
+  border-color: var(--border-m);
+  box-shadow: var(--shadow);
 }
 .kpi-box::before {
   content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--gold), var(--gold-d));
-  border-radius: var(--r-l) var(--r-l) 0 0;
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--orange), transparent);
+  opacity: .6;
 }
 .kpi-value {
-  font-family: 'Playfair Display', serif;
-  font-size: 2.1rem;
-  font-weight: 500;
-  color: var(--rubi);
-  line-height: 1;
-  margin-bottom: .3rem;
+  font-family: 'Geist Mono', monospace;
+  font-size: 1.9rem; font-weight: 500;
+  color: var(--text-1); line-height: 1; margin-bottom: .35rem;
+  letter-spacing: -.04em;
 }
 .kpi-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--ink-l);
-  text-transform: uppercase;
-  letter-spacing: .1em;
+  font-size: 10px; font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .12em;
 }
-.kpi-delta { font-size: 11px; margin-top: 5px; }
-.kpi-up   { color: #0B7A5F; }
-.kpi-down { color: #C41230; }
+.kpi-delta { font-size: 11px; margin-top: 6px; font-family: 'Geist Mono', monospace; }
+.kpi-up   { color: var(--green); }
+.kpi-down { color: var(--red);   }
 
-/* Divider */
+/* ── Divider ─────────────────────────────────────────────────── */
 .sdiv {
   height: 1px;
-  background: linear-gradient(90deg, var(--border), transparent);
-  margin: 1.5rem 0;
+  background: var(--border);
+  margin: 1.4rem 0;
 }
 
-/* Section header */
+/* ── Section header ──────────────────────────────────────────── */
 .sec-head {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  margin-bottom: 1rem;
+  display: flex; align-items: center; gap: .6rem;
+  margin-bottom: .9rem;
 }
 .sec-head-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.1rem;
-  color: var(--rubi);
-  font-weight: 500;
+  font-family: 'Syne', sans-serif;
+  font-size: .9rem; font-weight: 700;
+  color: var(--text-2);
+  letter-spacing: -.01em;
+  white-space: nowrap;
 }
 .sec-head-line {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
+  flex: 1; height: 1px; background: var(--border);
 }
 
-/* Alert / badge */
+/* ── Alerts ──────────────────────────────────────────────────── */
 .alert {
   border-radius: var(--r);
-  padding: .75rem 1rem;
+  padding: .7rem .9rem;
   margin-bottom: .5rem;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12.5px; line-height: 1.55;
+  display: flex; align-items: flex-start; gap: 8px;
 }
-.alert-r { background: #FFF0F3; border: 1px solid #FFC8D0; color: #8B1530; }
-.alert-y { background: #FFFBEC; border: 1px solid #FFE580; color: #6B4A00; }
-.alert-g { background: #EDFCF6; border: 1px solid #A0EDCE; color: #0A5040; }
-.alert-b { background: #EEF4FF; border: 1px solid #B8D0FF; color: #1E3A8A; }
+.alert-r {
+  background: var(--red-dim);
+  border: 1px solid rgba(244,63,94,.25);
+  color: #FDA4AF;
+}
+.alert-y {
+  background: var(--amber-dim);
+  border: 1px solid rgba(245,158,11,.25);
+  color: #FCD34D;
+}
+.alert-g {
+  background: var(--green-dim);
+  border: 1px solid rgba(16,185,129,.25);
+  color: #6EE7B7;
+}
+.alert-b {
+  background: var(--blue-dim);
+  border: 1px solid rgba(59,130,246,.25);
+  color: #93C5FD;
+}
 
-/* Kanban */
+/* ── Notification banner ─────────────────────────────────────── */
+.notif-banner {
+  background: linear-gradient(135deg, rgba(245,158,11,.08), rgba(243,110,33,.06));
+  border: 1px solid rgba(245,158,11,.22);
+  border-radius: var(--r); padding: .75rem 1rem;
+  margin-bottom: 1rem; font-size: 12.5px; color: #FCD34D;
+  line-height: 1.6;
+}
+
+/* ── Kanban ──────────────────────────────────────────────────── */
 .kb-col-head {
-  font-size: 10px; font-weight: 800;
+  font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .12em;
-  padding: .5rem 1rem; border-radius: var(--r-s);
-  margin-bottom: .75rem;
+  padding: .4rem .8rem; border-radius: var(--r-s);
+  margin-bottom: .6rem;
   display: flex; align-items: center; justify-content: space-between;
 }
-.kb-aberto    { background: #FFF3EC; color: #A84010; }
-.kb-andamento { background: #FFFBEC; color: #7A5010; }
-.kb-travado   { background: #FFF0F0; color: #8B1010; }
-.kb-concluido { background: #EDFCF6; color: #0A6A50; }
-.kb-cancelado { background: #F5F5F5; color: #555; }
+.kb-aberto    { background: rgba(243,110,33,.1);  color: #FBA672; }
+.kb-andamento { background: rgba(59,130,246,.1);  color: #93C5FD; }
+.kb-travado   { background: rgba(244,63,94,.1);   color: #FDA4AF; }
+.kb-concluido { background: rgba(16,185,129,.1);  color: #6EE7B7; }
+.kb-cancelado { background: var(--overlay);       color: var(--text-3); }
 
 .kb-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r);
-  padding: .9rem 1rem;
-  margin-bottom: .5rem;
+  padding: .8rem .9rem;
+  margin-bottom: .4rem;
   cursor: pointer;
-  transition: all .15s ease;
+  transition: border-color .14s, box-shadow .14s, transform .14s;
 }
 .kb-card:hover {
-  border-color: var(--gold);
-  box-shadow: 0 4px 20px rgba(51,0,26,.10);
+  border-color: var(--border-m);
+  box-shadow: var(--shadow);
   transform: translateY(-1px);
 }
 .kb-card-title {
-  font-weight: 600; font-size: 13px;
-  color: var(--rubi); margin-bottom: 5px;
+  font-weight: 600; font-size: 12.5px;
+  color: var(--text-1); margin-bottom: 4px;
+  letter-spacing: -.01em;
 }
-.kb-card-meta {
-  font-size: 11.5px; color: var(--ink-m); line-height: 1.8;
+.kb-card-meta  { font-size: 11px; color: var(--text-3); line-height: 1.7; }
+.kb-sla-ok     { color: var(--green);  font-size: 11px; font-weight: 600; margin-top: 4px; font-family: 'Geist Mono', monospace; }
+.kb-sla-med    { color: var(--amber);  font-size: 11px; font-weight: 600; margin-top: 4px; font-family: 'Geist Mono', monospace; }
+.kb-sla-bad    { color: var(--red);    font-size: 11px; font-weight: 600; margin-top: 4px; font-family: 'Geist Mono', monospace; }
+.kb-motivo     { font-size: 11px; color: var(--red); margin-top: 4px; font-style: italic; }
+.kb-obs-badge  {
+  display: inline-block; background: var(--orange-dim);
+  color: var(--orange); border-radius: var(--r-xs);
+  padding: 1px 6px; font-size: 10px; font-weight: 700; margin-top: 3px;
 }
-.kb-sla-ok  { color: #0B7A5F; font-size: 11px; font-weight: 600; margin-top: 4px; }
-.kb-sla-med { color: #7A5010; font-size: 11px; font-weight: 600; margin-top: 4px; }
-.kb-sla-bad { color: #C41230; font-size: 11px; font-weight: 600; margin-top: 4px; }
-.kb-motivo  { font-size: 11px; color: #8B1010; margin-top: 4px; font-style: italic; }
-.kb-obs-badge {
-  display: inline-block; background: var(--gold-l); color: var(--gold);
-  border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; margin-top: 4px;
+.kb-wrap  { min-height: 60px; }
+.kb-empty { font-size: 12px; color: var(--text-4); text-align: center; padding: 1.5rem 0; }
+.kb-metric {
+  font-size: 11px; color: var(--text-3); text-align: center;
+  margin-top: .4rem; background: var(--overlay);
+  border-radius: var(--r-s); padding: .25rem;
+  font-family: 'Geist Mono', monospace;
 }
-.kb-wrap    { min-height: 60px; }
-.kb-empty   { font-size: 12px; color: var(--ink-l); text-align: center; padding: 1.5rem 0; }
-.kb-metric  { font-size: 11px; color: var(--ink-l); text-align: center; margin-top: .5rem;
-              background: var(--bg-alt); border-radius: var(--r-s); padding: .3rem; }
 .kb-tag-atrasada {
-  display: inline-block; background: #FFF0F3; color: #8B1530;
-  border: 1px solid #FFC8D0; border-radius: 4px; padding: 1px 7px;
-  font-size: 10px; font-weight: 700; margin-top: 3px; letter-spacing: .04em;
+  display: inline-block;
+  background: var(--red-dim); color: var(--red);
+  border: 1px solid rgba(244,63,94,.25);
+  border-radius: var(--r-xs); padding: 1px 6px;
+  font-size: 9.5px; font-weight: 700; margin-top: 3px;
+  letter-spacing: .04em; text-transform: uppercase;
 }
 .kb-tag-hoje {
-  display: inline-block; background: #FFF3EC; color: #A84010;
-  border: 1px solid #FFCBA0; border-radius: 4px; padding: 1px 7px;
-  font-size: 10px; font-weight: 700; margin-top: 3px;
+  display: inline-block;
+  background: var(--amber-dim); color: var(--amber);
+  border: 1px solid rgba(245,158,11,.25);
+  border-radius: var(--r-xs); padding: 1px 6px;
+  font-size: 9.5px; font-weight: 700; margin-top: 3px;
 }
 .kb-tag-prog {
-  display: inline-block; background: #EEF4FF; color: #1E3A8A;
-  border: 1px solid #B8D0FF; border-radius: 4px; padding: 1px 7px;
-  font-size: 10px; font-weight: 600; margin-top: 3px;
+  display: inline-block;
+  background: var(--blue-dim); color: var(--blue);
+  border: 1px solid rgba(59,130,246,.25);
+  border-radius: var(--r-xs); padding: 1px 6px;
+  font-size: 9.5px; font-weight: 600; margin-top: 3px;
 }
 
-/* Sidebar internals */
-.sb-brand {
-  padding: 1.8rem 1.4rem 1rem;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  margin-bottom: .5rem;
+/* ── BI / Deduções ───────────────────────────────────────────── */
+.deducao-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .4rem 0; border-bottom: 1px solid var(--border); font-size: 13px;
 }
-.sb-brand-name {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.3rem; color: white; font-weight: 500; letter-spacing: -.01em;
-}
-.sb-brand-sub {
-  font-size: 10px; color: rgba(255,255,255,.4); letter-spacing: .1em;
-  text-transform: uppercase; margin-top: 1px;
-}
-.sb-user {
-  margin: 0 .8rem .75rem;
-  background: rgba(255,255,255,.06);
-  border-radius: var(--r); padding: .7rem .9rem;
-  border: 1px solid rgba(255,255,255,.06);
-}
-.sb-user-name { font-size: 13px; color: white; font-weight: 600; }
-.sb-user-role {
-  font-size: 10px; color: rgba(255,255,255,.45);
-  text-transform: uppercase; letter-spacing: .08em; margin-top: 1px;
-}
-.sb-google-badge {
-  margin: 0 .8rem .5rem;
-  background: rgba(255,255,255,.04);
-  border-radius: var(--r-s); padding: .4rem .7rem;
-  font-size: 11px; color: rgba(255,255,255,.6);
-  display: flex; align-items: center; gap: 6px;
-  border: 1px solid rgba(255,255,255,.07);
-}
-.sec-label {
-  font-size: 9.5px; font-weight: 800; letter-spacing: .14em;
-  text-transform: uppercase; color: rgba(255,255,255,.28);
-  margin-bottom: 4px; margin-top: 16px; padding-left: 1rem;
-}
-.sb-divider { height: 1px; background: rgba(255,255,255,.06); margin: .5rem .8rem; }
+.deducao-label    { color: var(--text-3); }
+.deducao-val-neg  { color: var(--red);   font-weight: 600; font-family: 'Geist Mono', monospace; }
+.deducao-val-pos  { color: var(--green); font-weight: 700; font-size: 1.05em; font-family: 'Geist Mono', monospace; }
 
-/* Notif banner */
-.notif-banner {
-  background: linear-gradient(135deg, #FFF3EC, #FFFBEC);
-  border: 1px solid #FFCBA0; border-radius: var(--r);
-  padding: .85rem 1.1rem; margin-bottom: 1rem;
-  font-size: 13px; color: #A84010;
+.modelo-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-s); padding: .9rem; margin-bottom: .4rem;
 }
+.modelo-header {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; padding: .25rem .6rem;
+  border-radius: var(--r-xs); margin-bottom: .4rem; display: inline-block;
+}
+.modelo-assoc { background: var(--blue-dim);   color: var(--blue);   }
+.modelo-cons  { background: var(--orange-dim);  color: var(--orange); }
+.modelo-auto  { background: var(--green-dim);   color: var(--green);  }
 
-/* Calendar */
+/* ── Calendar ────────────────────────────────────────────────── */
 .cal-box {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-l); padding: 1.2rem 1.3rem;
-  box-shadow: var(--shadow);
+  border-radius: var(--r-l); padding: 1.1rem 1.2rem;
 }
 .cal-day-header {
-  font-size: 9.5px; font-weight: 800; color: var(--ink-l);
-  text-transform: uppercase; letter-spacing: .1em;
-  margin-bottom: .4rem; margin-top: .8rem; padding-bottom: .3rem;
+  font-size: 9px; font-weight: 700; color: var(--text-4);
+  text-transform: uppercase; letter-spacing: .12em;
+  margin-bottom: .35rem; margin-top: .7rem; padding-bottom: .25rem;
   border-bottom: 1px solid var(--border);
 }
 .cal-event {
-  background: var(--gold-l); border-left: 3px solid var(--gold);
-  border-radius: 4px; padding: 3px 8px; font-size: 11px;
-  margin-bottom: 3px; color: var(--ink);
+  background: var(--orange-dim); border-left: 2px solid var(--orange);
+  border-radius: var(--r-xs); padding: 3px 7px; font-size: 11px;
+  margin-bottom: 3px; color: #FBA672;
 }
 .cal-event-atrasado {
-  background: #FFF0F3; border-left: 3px solid #C41230;
-  border-radius: 4px; padding: 3px 8px; font-size: 11px;
-  margin-bottom: 3px; color: #8B1530;
+  background: var(--red-dim); border-left: 2px solid var(--red);
+  border-radius: var(--r-xs); padding: 3px 7px; font-size: 11px;
+  margin-bottom: 3px; color: #FDA4AF;
 }
 .cal-event-hoje {
-  background: #EDFCF6; border-left: 3px solid #0B7A5F;
-  border-radius: 4px; padding: 3px 8px; font-size: 11px;
-  margin-bottom: 3px; color: #0A5040;
+  background: var(--green-dim); border-left: 2px solid var(--green);
+  border-radius: var(--r-xs); padding: 3px 7px; font-size: 11px;
+  margin-bottom: 3px; color: #6EE7B7;
 }
 
-/* BI / Deduções */
-.deducao-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: .4rem 0; border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-.deducao-label  { color: var(--ink-m); }
-.deducao-val-neg { color: #C41230; font-weight: 600; }
-.deducao-val-pos { color: #0B7A5F; font-weight: 700; font-size: 1.05em; }
-
-.modelo-card { background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-s); padding: 1rem; margin-bottom: .5rem; }
-.modelo-header { font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .06em; padding: .3rem .7rem; border-radius: 5px; margin-bottom: .5rem; }
-.modelo-assoc  { background: #EEF4FF; color: #1E3A8A; }
-.modelo-cons   { background: #FFF3EC; color: #A84010; }
-.modelo-auto   { background: #EDFCF6; color: #0A5040; }
-
-/* Login page */
+/* ── Login ───────────────────────────────────────────────────── */
 .login-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--rubi-d) 0%, var(--rubi) 50%, var(--rubi-xl) 100%);
+  background: var(--bg);
   display: flex; align-items: center; justify-content: center;
 }
 .login-card {
-  background: rgba(255,255,255,.97);
+  background: var(--surface);
+  border: 1px solid var(--border-m);
   border-radius: var(--r-xl);
-  padding: 3rem 2.8rem 2.5rem;
-  box-shadow: 0 32px 80px rgba(0,0,0,.35);
-  max-width: 420px; width: 100%;
+  padding: 2.8rem 2.5rem 2.4rem;
+  box-shadow: var(--shadow-l), 0 0 80px rgba(243,110,33,.06);
+  max-width: 400px; width: 100%;
 }
 .login-brand {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.5rem; color: var(--rubi);
-  font-weight: 500; margin-bottom: .15rem;
+  font-family: 'Syne', sans-serif;
+  font-size: 1.35rem; color: var(--text-1);
+  font-weight: 700; letter-spacing: -.02em; margin-bottom: .1rem;
 }
 .login-sub {
-  font-size: 12px; color: var(--ink-l);
+  font-size: 11px; color: var(--text-3);
   text-transform: uppercase; letter-spacing: .1em;
-  margin-bottom: 2rem;
+  margin-bottom: 1.8rem;
 }
 .login-form-label {
-  font-size: 11px; font-weight: 700; color: var(--ink-m);
-  text-transform: uppercase; letter-spacing: .08em; margin-bottom: .3rem;
+  font-size: 10.5px; font-weight: 600; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .1em; margin-bottom: .3rem;
 }
 
-/* Page header strip */
+/* ── Page header ─────────────────────────────────────────────── */
 .page-header {
   display: flex; align-items: flex-end; justify-content: space-between;
-  margin-bottom: 1.75rem; padding-bottom: 1rem;
+  margin-bottom: 1.5rem; padding-bottom: .9rem;
   border-bottom: 1px solid var(--border);
 }
 .page-header-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.9rem; color: var(--rubi); font-weight: 500;
-  letter-spacing: -.02em; line-height: 1;
+  font-family: 'Syne', sans-serif;
+  font-size: 1.65rem; color: var(--text-1); font-weight: 700;
+  letter-spacing: -.03em; line-height: 1;
 }
-.page-header-sub {
-  font-size: 12px; color: var(--ink-l); margin-top: .3rem;
+.page-header-sub { font-size: 12px; color: var(--text-3); margin-top: .3rem; }
+
+/* ── v12 Gestor Dashboard ────────────────────────────────────── */
+.gestor-analista-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-l); padding: .8rem 1rem;
+  margin-bottom: .5rem;
+  transition: border-color .14s, box-shadow .14s;
+}
+.gestor-analista-card:hover {
+  border-color: var(--border-m);
+  box-shadow: var(--shadow);
+}
+
+/* ── v12 Auditoria / Medição ─────────────────────────────────── */
+.audit-alert-crit {
+  background: var(--red-dim);
+  border-left: 3px solid var(--red);
+  border-radius: var(--r); padding: .7rem .9rem;
+  margin-bottom: .4rem; font-size: 12.5px; color: #FDA4AF;
+}
+.audit-alert-warn {
+  background: var(--amber-dim);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--r); padding: .7rem .9rem;
+  margin-bottom: .4rem; font-size: 12.5px; color: #FCD34D;
+}
+.audit-alert-ok {
+  background: var(--green-dim);
+  border-left: 3px solid var(--green);
+  border-radius: var(--r); padding: .7rem .9rem;
+  margin-bottom: .4rem; font-size: 12.5px; color: #6EE7B7;
+}
+
+/* ── v12 Gantt ───────────────────────────────────────────────── */
+.gantt-row-v12 {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.gantt-track-v12 {
+  flex: 1; height: 6px; background: var(--surface-3);
+  border-radius: 3px; overflow: hidden;
+}
+.gantt-fill-v12 { height: 100%; border-radius: 3px; transition: width .3s ease; }
+
+/* ── Sidebar badges ──────────────────────────────────────────── */
+.sb-badge-warn {
+  background: var(--red-dim); border: 1px solid rgba(244,63,94,.22);
+  border-radius: var(--r-s); padding: 5px 10px;
+  margin-bottom: 5px; font-size: 11.5px; color: #FDA4AF;
+}
+.sb-badge-info {
+  background: var(--amber-dim); border: 1px solid rgba(245,158,11,.22);
+  border-radius: var(--r-s); padding: 5px 10px;
+  margin-bottom: 5px; font-size: 11.5px; color: #FCD34D;
 }
 </style>
 """
@@ -648,6 +857,873 @@ def sla_cls(d):
     if d <= 3: return "kb-sla-ok"
     if d <= 7: return "kb-sla-med"
     return "kb-sla-bad"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v12 · CRONOGRAMA MENSAL AUTOMÁTICO
+# ══════════════════════════════════════════════════════════════════════════════
+
+CRON_FILE = f"{DB}/cronograma_gerado.json"
+
+def load_cronograma_gerado(): return _load(CRON_FILE, [])
+def save_cronograma_gerado(d): _save(CRON_FILE, d)
+
+CRON_SEMANA = {
+    "relatorio_medicao": {"semana": 1, "dia_ini": 1,  "dia_fim": 7,  "label": "Relatório de Medição",  "tipo": "Relatório"},
+    "fatura_ug":         {"semana": 1, "dia_ini": 1,  "dia_fim": 7,  "label": "Fatura da UG",          "tipo": "Captura"},
+    "auditoria_ufv":     {"semana": 2, "dia_ini": 8,  "dia_fim": 21, "label": "Auditoria UFV",         "tipo": "Auditoria"},
+    "auditoria_ucs":     {"semana": 2, "dia_ini": 8,  "dia_fim": 21, "label": "Auditoria UCs",         "tipo": "Auditoria"},
+    "material_gerador":  {"semana": 3, "dia_ini": 15, "dia_fim": 21, "label": "Material do Gerador",   "tipo": "Relatório"},
+    "checkpoint_s3":     {"semana": 3, "dia_ini": 15, "dia_fim": 21, "label": "Checkpoint Gerador S3", "tipo": "Avulsa"},
+    "subir_rateio":      {"semana": 4, "dia_ini": 22, "dia_fim": 28, "label": "Subir Rateio",          "tipo": "Rateio"},
+    "inadimplencia":     {"semana": 4, "dia_ini": 22, "dia_fim": 28, "label": "Levantar Inadimplência","tipo": "Análise de Faturamento"},
+    "checkpoint_s4":     {"semana": 4, "dia_ini": 22, "dia_fim": 31, "label": "Checkpoint Gerador S4", "tipo": "Avulsa"},
+}
+
+def _data_programada_cron(ano: int, mes: int, dia_fim: int) -> str:
+    import calendar
+    ultimo = calendar.monthrange(ano, mes)[1]
+    d = min(dia_fim, ultimo)
+    return f"{d:02d}/{mes:02d}/{ano}"
+
+def gerar_cronograma_mensal(ano: int, mes: int, analista: str) -> int:
+    """
+    Para cada usina do analista cria as tarefas mensais que ainda não existem.
+    Retorna o nº de tarefas criadas.
+    """
+    usinas   = [u for u in load_usinas() if u.get("analista","").lower() == analista.lower()]
+    geradores= load_geradores()
+    tasks    = load_tasks()
+    cron_log = load_cronograma_gerado()
+    mes_str  = f"{mes:02d}/{ano}"
+
+    # índice de tarefas existentes para evitar duplicatas
+    existentes = {
+        (t.get("tipo",""), t.get("usina",""), t.get("agendamento",""))
+        for t in tasks
+    }
+
+    criadas = 0
+    for u in usinas:
+        uc       = str(u.get("uc","")).strip()
+        ufv      = u.get("ufv","") or uc
+        gerador  = u.get("gerador","")
+        ger_obj  = next((g for g in geradores if g.get("gerador","").lower() == gerador.lower()), {})
+
+        for chave, cfg in CRON_SEMANA.items():
+            titulo = f"{cfg['label']} — {ufv}"
+            dp     = _data_programada_cron(ano, mes, cfg["dia_fim"])
+            chave_dup = (cfg["tipo"], uc, mes_str)
+
+            # Só cria se ainda não existe tarefa do mesmo tipo/usina/mês
+            if any(
+                t.get("tipo") == cfg["tipo"]
+                and t.get("usina") == uc
+                and mes_str in t.get("data_programada","")
+                and cfg["label"].split("—")[0].strip().lower() in t.get("titulo","").lower()
+                for t in tasks
+            ):
+                continue
+
+            new_task(
+                titulo        = titulo,
+                usina         = uc,
+                gerador       = gerador,
+                analista      = analista,
+                tipo          = cfg["tipo"],
+                agendamento   = mes_str,
+                descricao     = f"Tarefa automática — cronograma {mes_str} · Semana {cfg['semana']}",
+                data_programada = dp,
+            )
+            criadas += 1
+
+    # Registra log de geração
+    cron_log.append({
+        "mes_ref":    mes_str,
+        "analista":   analista,
+        "criadas":    criadas,
+        "gerado_em":  datetime.now().strftime("%d/%m/%Y %H:%M"),
+    })
+    save_cronograma_gerado(cron_log)
+    return criadas
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v12 · CRUZAMENTO EXTRATO vs RELATÓRIO DE MEDIÇÃO
+# ══════════════════════════════════════════════════════════════════════════════
+
+def cruzar_medicao_extrato(df_extrato: "pd.DataFrame", df_medicao: "pd.DataFrame") -> dict:
+    """
+    Cruza o extrato detalhado (faturas pagas no mês) com o relatório de medição.
+    Retorna dict com:
+      - ok        : lista de UCs presentes nos dois
+      - ausentes  : faturas pagas no extrato que NÃO estão no relatório
+      - extras    : itens no relatório que não têm pagamento no extrato
+    """
+    # ── Extrato: detecta colunas ───────────────────────────────────────────
+    col_uc_e  = next((c for c in df_extrato.columns if "número da uc"  in c.lower()), None)
+    col_st_e  = next((c for c in df_extrato.columns if "status"        in c.lower()), None)
+    col_dt_e  = next((c for c in df_extrato.columns if "data de pagamento" in c.lower() or "pagamento" in c.lower()), None)
+    col_val_e = next((c for c in df_extrato.columns if "total a pagar" in c.lower()), None)
+    col_comp_e= next((c for c in df_extrato.columns if "competência"   in c.lower() or "competencia" in c.lower()), None)
+    col_tit_e = next((c for c in df_extrato.columns if "titular"       in c.lower()), None)
+
+    if not col_uc_e:
+        return {"erro": "Coluna 'Número da UC' não encontrada no extrato."}
+
+    # Filtra só pagas
+    df_pago = df_extrato.copy()
+    if col_st_e:
+        df_pago = df_pago[df_pago[col_st_e].astype(str).str.lower() == "pago"]
+
+    df_pago["_uc_norm"] = df_pago[col_uc_e].apply(normalize_uc)
+    if col_comp_e:
+        df_pago["_comp"] = df_pago[col_comp_e].astype(str).str.strip()
+    else:
+        df_pago["_comp"] = "—"
+
+    extrato_set = set(zip(df_pago["_uc_norm"], df_pago["_comp"]))
+
+    # ── Relatório de medição: detecta colunas ─────────────────────────────
+    col_uc_m   = next((c for c in df_medicao.columns if "uc"       in c.lower()), None)
+    col_comp_m = next((c for c in df_medicao.columns if "compet"   in c.lower()), None)
+    col_val_m  = next((c for c in df_medicao.columns if "valor"    in c.lower() or "total" in c.lower()), None)
+    col_tit_m  = next((c for c in df_medicao.columns if "titular"  in c.lower() or "nome" in c.lower()), None)
+
+    medicao_set = set()
+    if col_uc_m:
+        if col_comp_m:
+            medicao_set = set(zip(
+                df_medicao[col_uc_m].apply(normalize_uc),
+                df_medicao[col_comp_m].astype(str).str.strip()
+            ))
+        else:
+            medicao_set = {(normalize_uc(v), "—") for v in df_medicao[col_uc_m]}
+
+    # ── Cruzamento ────────────────────────────────────────────────────────
+    ok      = []
+    ausentes= []
+    for _, row in df_pago.iterrows():
+        uc   = row["_uc_norm"]
+        comp = row["_comp"]
+        val  = clean_val(row[col_val_e]) if col_val_e else 0.0
+        tit  = str(row[col_tit_e]) if col_tit_e else "—"
+        item = {"uc": row[col_uc_e], "competencia": comp, "valor": val, "titular": tit}
+        if (uc, comp) in medicao_set or (uc, "—") in medicao_set:
+            ok.append(item)
+        else:
+            ausentes.append(item)
+
+    extras = []
+    if col_uc_m:
+        for _, row in df_medicao.iterrows():
+            uc   = normalize_uc(str(row[col_uc_m]))
+            comp = str(row[col_comp_m]).strip() if col_comp_m else "—"
+            if (uc, comp) not in extrato_set and (uc, "—") not in extrato_set:
+                extras.append({
+                    "uc":         row[col_uc_m],
+                    "competencia": comp,
+                    "valor":      clean_val(row[col_val_m]) if col_val_m else 0.0,
+                    "titular":    str(row[col_tit_m]) if col_tit_m else "—",
+                })
+
+    return {
+        "ok":       ok,
+        "ausentes": ausentes,
+        "extras":   extras,
+        "total_pago": sum(i["valor"] for i in ok) + sum(i["valor"] for i in ausentes),
+        "total_ausente_valor": sum(i["valor"] for i in ausentes),
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v12 · AUDITORIA UFV / UCS — PARSER DA PLANILHA NAFISAH
+# ══════════════════════════════════════════════════════════════════════════════
+
+def parse_auditoria_planilha(file_or_bytes) -> dict:
+    """
+    Lê a planilha de auditoria (formato Nafisah UFV7 / padrão Sunne).
+    Retorna dict com:
+      - usina_resumo    : {geracao, consumo, creditos, saldo_total, saldo_usina}
+      - beneficiarios   : lista de {uc, saldo, consumo, autonomia, percentual, ancora, reprovado}
+      - rateio_base     : lista de {uc, cnpj, percentual, ancora, reprovado}
+      - alertas_ben     : lista de {uc, tipo, mensagem}
+      - alertas_rateio  : lista de {tipo, mensagem}
+      - meses_analisados: int
+    """
+    import openpyxl
+    from openpyxl import load_workbook
+
+    if isinstance(file_or_bytes, bytes):
+        wb = load_workbook(io.BytesIO(file_or_bytes), read_only=True, data_only=True)
+    else:
+        wb = load_workbook(file_or_bytes, read_only=True, data_only=True)
+
+    result = {
+        "usina_resumo":     {},
+        "beneficiarios":    [],
+        "rateio_base":      [],
+        "alertas_ben":      [],
+        "alertas_rateio":   [],
+        "meses_analisados": 0,
+        "nome_planilha":    "",
+        "erro":             "",
+    }
+
+    # ── Aba principal "Tabela" ──────────────────────────────────────────────
+    sheet_tabela = None
+    for nome in wb.sheetnames:
+        if "tabela" in nome.lower() and "últim" not in nome.lower() and "base" not in nome.lower():
+            sheet_tabela = wb[nome]
+            result["nome_planilha"] = nome
+            break
+    if not sheet_tabela and wb.sheetnames:
+        sheet_tabela = wb[wb.sheetnames[0]]
+
+    if sheet_tabela:
+        rows = list(sheet_tabela.iter_rows(values_only=True))
+        geracao_row = consumo_row = creditos_row = saldo_total_row = saldo_usina_row = None
+
+        for row in rows[:30]:
+            lbl = str(row[1]).strip().lower() if len(row) > 1 and row[1] else ""
+            if "geração"   in lbl or "geracao" in lbl:  geracao_row    = row
+            elif "consumo" in lbl:                       consumo_row    = row
+            elif "créditos utiliz" in lbl:               creditos_row   = row
+            elif "saldo acumulado total" in lbl:         saldo_total_row= row
+            elif "saldo acumulado usina" in lbl:         saldo_usina_row= row
+
+        def _row_vals(row):
+            if row is None: return []
+            return [clean_val(v) for v in row[2:] if v not in (None, "", "nan")]
+
+        ger_vals   = _row_vals(geracao_row)
+        cons_vals  = _row_vals(consumo_row)
+        cred_vals  = _row_vals(creditos_row)
+        sald_vals  = _row_vals(saldo_total_row)
+
+        # Remove zeros no início (meses sem dados)
+        def _strip_zeros(lst): return [v for v in lst if v > 0]
+        ger_nz  = _strip_zeros(ger_vals)
+        cons_nz = _strip_zeros(cons_vals)
+        cred_nz = _strip_zeros(cred_vals)
+        sald_nz = _strip_zeros(sald_vals)
+
+        meses = max(len(ger_nz), len(cons_nz), len(cred_nz), 1)
+        result["meses_analisados"] = meses
+        result["usina_resumo"] = {
+            "geracao_total":  sum(ger_nz),
+            "consumo_total":  sum(cons_nz),
+            "creditos_total": sum(cred_nz),
+            "saldo_atual":    sald_nz[-1] if sald_nz else 0.0,
+            "geracao_media":  sum(ger_nz) / len(ger_nz) if ger_nz else 0.0,
+            "consumo_media":  sum(cons_nz) / len(cons_nz) if cons_nz else 0.0,
+        }
+
+        # ── Saúde do rateio: consumo > geração por 3+ meses ────────────────
+        meses_cons_maior = sum(
+            1 for g, c in zip(ger_nz, cons_nz) if c > g
+        )
+        if meses_cons_maior >= 3:
+            result["alertas_rateio"].append({
+                "tipo": "critico",
+                "mensagem": f"🚨 Usina com consumo > geração por {meses_cons_maior} meses consecutivos. "
+                            "Necessário remanejar beneficiários.",
+            })
+        elif meses_cons_maior >= 1:
+            result["alertas_rateio"].append({
+                "tipo": "atencao",
+                "mensagem": f"⚠️ Usina com consumo > geração em {meses_cons_maior} mês(es). Monitorar.",
+            })
+
+        # ── Beneficiários: bloco "Autonomia" ──────────────────────────────
+        # Localiza seção de beneficiários via cabeçalho "UC | Saldo | Consumo | Autonomia"
+        in_ben = False
+        for row in rows:
+            cells = [str(c).strip().lower() if c else "" for c in row]
+            if "autonomia" in cells and "saldo" in cells and "consumo" in cells:
+                in_ben = True
+                continue
+            if not in_ben:
+                continue
+            # Linha de dados: primeiro campo parece UC (número grande)
+            uc_val = row[0] if row else None
+            if uc_val is None or str(uc_val).strip() in ("", "None", "nan"):
+                continue
+            uc_str    = str(uc_val).strip()
+            saldo_v   = clean_val(row[1]) if len(row) > 1 else 0.0
+            consumo_v = clean_val(row[2]) if len(row) > 2 else 0.0
+            autonomia_raw = str(row[3]).strip() if len(row) > 3 and row[3] else "0"
+
+            try:
+                autonomia_v = float(str(autonomia_raw).replace(",","."))
+            except Exception:
+                autonomia_v = 0.0
+
+            result["beneficiarios"].append({
+                "uc":        uc_str,
+                "saldo":     saldo_v,
+                "consumo":   consumo_v,
+                "autonomia": autonomia_v,
+            })
+
+            # Alertas por beneficiário
+            if autonomia_v > 3:
+                result["alertas_ben"].append({
+                    "uc":      uc_str,
+                    "tipo":    "saldo_alto",
+                    "mensagem": f"💰 UC {uc_str}: saldo acumulado = {autonomia_v:.1f} meses — "
+                                "reduzir % de rateio para queimar saldo.",
+                })
+            if consumo_v > 0 and saldo_v == 0 and autonomia_v < 0.5:
+                result["alertas_ben"].append({
+                    "uc":      uc_str,
+                    "tipo":    "recebendo_menos",
+                    "mensagem": f"📉 UC {uc_str}: recebendo menos do que consome — "
+                                "aumentar % de rateio.",
+                })
+
+    # ── Aba "Base do último rateio" ─────────────────────────────────────────
+    sheet_rateio = next((wb[n] for n in wb.sheetnames if "rateio" in n.lower() or "último" in n.lower()), None)
+    if sheet_rateio:
+        in_rateio = False
+        for row in sheet_rateio.iter_rows(values_only=True):
+            cells = [str(c).strip().lower() if c else "" for c in row]
+            if "número uc" in cells or "numero uc" in cells or ("uc" in cells and "percentual" in cells):
+                in_rateio = True
+                continue
+            if not in_rateio:
+                continue
+            if not row[0]:
+                continue
+            uc_r   = str(row[0]).strip()
+            cnpj_r = str(row[1]).strip() if len(row) > 1 and row[1] else "—"
+            pct_r  = clean_val(row[2]) if len(row) > 2 else 0.0
+            anc_r  = str(row[3]).strip() if len(row) > 3 and row[3] else "Não"
+            rep_r  = str(row[4]).strip() if len(row) > 4 and row[4] else "Não"
+            if uc_r and uc_r.lower() not in ("nan","none","número uc","numero uc"):
+                result["rateio_base"].append({
+                    "uc": uc_r, "cnpj": cnpj_r, "percentual": pct_r,
+                    "ancora": anc_r, "reprovado": rep_r,
+                })
+
+    wb.close()
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v12 · DASHBOARD DO GESTOR
+# ══════════════════════════════════════════════════════════════════════════════
+
+def page_gestor_dashboard():
+    st.title("Painel do Gestor")
+    st.caption("Visão consolidada de todos os analistas e cronogramas — acesso exclusivo Admin")
+
+    users  = load_users()
+    tasks  = load_tasks()
+    agora  = datetime.now()
+
+    # ── Filtros ───────────────────────────────────────────────────────────────
+    analistas_nomes = sorted({u["name"] for u in users})
+    fc1, fc2, fc3 = st.columns(3)
+    f_an  = fc1.selectbox("Analista", ["Todos"] + analistas_nomes, key="gest_fan")
+    meses_opts = sorted(
+        {t.get("agendamento","") for t in tasks if t.get("agendamento","")},
+        key=lambda x: (int(x.split("/")[1]) if "/" in x else 0,
+                       int(x.split("/")[0]) if "/" in x else 0),
+        reverse=True,
+    )
+    f_mes = fc2.selectbox("Mês ref.", ["Todos"] + meses_opts, key="gest_fmes")
+    f_tipo= fc3.selectbox("Tipo", ["Todos"] + TIPOS, key="gest_ftipo")
+
+    def _match_gest(t):
+        if f_an  != "Todos" and t.get("analista","").lower() != f_an.lower():  return False
+        if f_mes != "Todos" and t.get("agendamento","") != f_mes:              return False
+        if f_tipo!= "Todos" and t.get("tipo","") != f_tipo:                    return False
+        return True
+
+    tasks_f = [t for t in tasks if _match_gest(t)]
+
+    # ── KPIs globais ──────────────────────────────────────────────────────────
+    st.markdown("<div class='sdiv'></div>", unsafe_allow_html=True)
+    ab_g    = [t for t in tasks_f if t["status"] == "Em aberto"]
+    and_g   = [t for t in tasks_f if t["status"] == "Em andamento"]
+    trav_g  = [t for t in tasks_f if t["status"] == "Travado"]
+    conc_g  = [t for t in tasks_f if t["status"] == "Concluido"]
+    atras_g = [t for t in tasks_f if task_esta_atrasada(t)]
+    ativos_g= [t for t in tasks_f if t["status"] not in ("Concluido","Cancelado")]
+    sla_g   = round(sum(sla_days(t) for t in ativos_g)/len(ativos_g), 1) if ativos_g else 0
+
+    kpi_cols = st.columns(7)
+    for col, lbl, val, cor in zip(kpi_cols,
+        ["Total","Em Aberto","Andamento","Travadas","Atrasadas","Concluídas","SLA Médio"],
+        [len(tasks_f), len(ab_g), len(and_g), len(trav_g), len(atras_g), len(conc_g), f"{sla_g}d"],
+        ["var(--rubi)","#A84010","#7A5010","#C41230","#C41230","#0B7A5F","var(--rubi)"],
+    ):
+        col.markdown(
+            f'<div class="kpi-box"><div class="kpi-value" style="color:{cor};font-size:1.6rem">{val}</div>'
+            f'<div class="kpi-label">{lbl}</div></div>', unsafe_allow_html=True)
+
+    st.write("")
+
+    # ── Performance por analista ──────────────────────────────────────────────
+    st.markdown('<div class="sec-head"><span class="sec-head-title">Performance por Analista</span>'
+                '<div class="sec-head-line"></div></div>', unsafe_allow_html=True)
+
+    analistas_data = []
+    for u in users:
+        an_name = u["name"]
+        tt = [t for t in tasks if t.get("analista","").lower() == an_name.lower()
+              and _match_gest(t)]
+        if not tt: continue
+        ab_a   = sum(1 for t in tt if t["status"] == "Em aberto")
+        and_a  = sum(1 for t in tt if t["status"] == "Em andamento")
+        trav_a = sum(1 for t in tt if t["status"] == "Travado")
+        conc_a = sum(1 for t in tt if t["status"] == "Concluido")
+        atras_a= sum(1 for t in tt if task_esta_atrasada(t))
+        total_a= len(tt)
+        pct_a  = round(conc_a / total_a * 100) if total_a > 0 else 0
+        sla_a  = round(sum(sla_days(t) for t in tt if t["status"] not in ("Concluido","Cancelado"))
+                       / max(1, sum(1 for t in tt if t["status"] not in ("Concluido","Cancelado"))), 1)
+        analistas_data.append({
+            "Analista": an_name, "Total": total_a,
+            "Aberto": ab_a, "Andamento": and_a,
+            "Travado": trav_a, "Atrasadas": atras_a,
+            "Concluídas": conc_a, "% Concluído": pct_a, "SLA (d)": sla_a,
+        })
+
+    if analistas_data:
+        for ad in sorted(analistas_data, key=lambda x: x["Atrasadas"], reverse=True):
+            iniciais = "".join(p[0].upper() for p in ad["Analista"].split()[:2])
+            cor_sla  = "#C41230" if ad["SLA (d)"] > 7 else ("#F36E21" if ad["SLA (d)"] > 3 else "#0B7A5F")
+            pct_bar  = ad["% Concluído"]
+            cor_bar  = "#0B7A5F" if pct_bar >= 70 else ("#F36E21" if pct_bar >= 40 else "#C41230")
+
+            c_av, c_info, c_det = st.columns([0.7, 6, 2])
+            with c_av:
+                st.markdown(
+                    f'<div style="width:38px;height:38px;border-radius:50%;background:var(--gold-l);'
+                    f'display:flex;align-items:center;justify-content:center;font-weight:600;'
+                    f'font-size:13px;color:var(--gold);margin-top:4px">{iniciais}</div>',
+                    unsafe_allow_html=True)
+            with c_info:
+                st.markdown(
+                    f'<div style="padding:8px 0">'
+                    f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">'
+                    f'<b style="font-size:14px">{ad["Analista"]}</b>'
+                    f'<span style="background:#FFF0F3;color:#8B1530;border:1px solid #FFC8D0;'
+                    f'border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700">'
+                    f'⏰ {ad["Atrasadas"]} atrasadas</span>'
+                    f'<span style="background:#FFFBEC;color:#7A5010;border:1px solid #FFE580;'
+                    f'border-radius:4px;padding:1px 7px;font-size:11px">{ad["Aberto"]} abertas</span>'
+                    f'<span style="background:#EDFCF6;color:#0A5040;border:1px solid #A0EDCE;'
+                    f'border-radius:4px;padding:1px 7px;font-size:11px">{ad["Concluídas"]} concluídas</span>'
+                    f'<span style="background:#EEF4FF;color:#1E3A8A;border:1px solid #B8D0FF;'
+                    f'border-radius:4px;padding:1px 7px;font-size:11px">{ad["Travado"]} travadas</span>'
+                    f'</div>'
+                    f'<div style="display:flex;align-items:center;gap:8px">'
+                    f'<div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">'
+                    f'<div style="width:{pct_bar}%;height:100%;background:{cor_bar};border-radius:3px"></div>'
+                    f'</div>'
+                    f'<span style="font-size:11px;color:var(--ink-l);white-space:nowrap">'
+                    f'{pct_bar}% · SLA <b style="color:{cor_sla}">{ad["SLA (d)"]}d</b></span>'
+                    f'</div></div>',
+                    unsafe_allow_html=True)
+            with c_det:
+                if st.button(f"Ver tarefas de {ad['Analista']}", key=f"gest_det_{ad['Analista']}"):
+                    st.session_state["gest_detalhe_analista"] = ad["Analista"]
+                    st.session_state["page"] = "atividades"
+                    st.rerun()
+            st.markdown("<div class='sdiv' style='margin:.4rem 0'></div>", unsafe_allow_html=True)
+
+    # ── Progresso do cronograma mensal ────────────────────────────────────────
+    st.write("")
+    st.markdown('<div class="sec-head"><span class="sec-head-title">Cronograma do Mês — Andamento</span>'
+                '<div class="sec-head-line"></div></div>', unsafe_allow_html=True)
+
+    mes_cron = f_mes if f_mes != "Todos" else agora.strftime("%m/%Y")
+    tasks_mes = [t for t in tasks if t.get("agendamento","") == mes_cron]
+
+    if not tasks_mes:
+        st.info(f"Nenhuma tarefa gerada para {mes_cron}. "
+                "Use a seção **Cronograma Automático** para gerar.")
+    else:
+        for chave, cfg in CRON_SEMANA.items():
+            lbl   = cfg["label"]
+            tt_cr = [t for t in tasks_mes if cfg["label"].split("—")[0].strip().lower()
+                     in t.get("titulo","").lower()]
+            total_cr = len(tt_cr)
+            if total_cr == 0: continue
+            conc_cr  = sum(1 for t in tt_cr if t["status"] == "Concluido")
+            atras_cr = sum(1 for t in tt_cr if task_esta_atrasada(t))
+            pct_cr   = round(conc_cr / total_cr * 100)
+            cor_cr   = "#0B7A5F" if pct_cr >= 70 else ("#F36E21" if pct_cr >= 30 else "#C41230")
+
+            c1, c2, c3 = st.columns([3, 5, 1.5])
+            c1.markdown(f'<div style="font-size:13px;padding:4px 0">'
+                        f'<b>S{cfg["semana"]}</b> · {lbl}</div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:8px;padding:4px 0">'
+                    f'<div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden">'
+                    f'<div style="width:{pct_cr}%;height:100%;background:{cor_cr};border-radius:4px"></div></div>'
+                    f'<span style="font-size:11px;color:var(--ink-l);white-space:nowrap">'
+                    f'{conc_cr}/{total_cr} · {pct_cr}%</span></div>',
+                    unsafe_allow_html=True)
+            c3.markdown(
+                f'<div style="padding:4px 0;font-size:11px">'
+                f'{"🔴 " + str(atras_cr) + " atrasadas" if atras_cr else "✅"}</div>',
+                unsafe_allow_html=True)
+
+    # ── BI de setor ───────────────────────────────────────────────────────────
+    st.write("")
+    st.markdown('<div class="sec-head"><span class="sec-head-title">Distribuição de Status — Setor</span>'
+                '<div class="sec-head-line"></div></div>', unsafe_allow_html=True)
+
+    contagens = {s: sum(1 for t in tasks_f if t["status"] == s) for s in STATUS_LIST}
+    df_status = pd.DataFrame([
+        {"Status": s, "Qtd": contagens.get(s, 0)} for s in STATUS_LIST
+    ])
+    st.bar_chart(df_status.set_index("Status"), height=200)
+
+    # ── Geração de cronograma ─────────────────────────────────────────────────
+    st.write("")
+    st.markdown('<div class="sec-head"><span class="sec-head-title">⚙️ Gerar Cronograma Mensal Automático</span>'
+                '<div class="sec-head-line"></div></div>', unsafe_allow_html=True)
+
+    with st.expander("Gerar tarefas mensais para um analista"):
+        gc1, gc2, gc3 = st.columns(3)
+        gc_an  = gc1.selectbox("Analista",  analistas_nomes, key="gc_an")
+        gc_mes = gc2.number_input("Mês",  1, 12, agora.month, key="gc_mes")
+        gc_ano = gc3.number_input("Ano",  2024, 2030, agora.year, key="gc_ano")
+        if st.button("🗓️ Gerar Cronograma", key="btn_gc"):
+            n = gerar_cronograma_mensal(int(gc_ano), int(gc_mes), gc_an)
+            if n > 0:
+                st.success(f"✅ {n} atividades criadas para {gc_an} — {gc_mes:02d}/{gc_ano}!")
+            else:
+                st.info("Nenhuma atividade nova — todas já existem para este período.")
+
+        # Log de gerações
+        cron_log = load_cronograma_gerado()
+        if cron_log:
+            st.caption("Histórico de gerações")
+            st.dataframe(pd.DataFrame(cron_log[-10:]), use_container_width=True, hide_index=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v12 · PÁGINA: RELATÓRIO DE MEDIÇÃO — CRUZAMENTO
+# ══════════════════════════════════════════════════════════════════════════════
+
+def page_medicao_cruzamento():
+    st.title("Relatório de Medição")
+    st.caption("Cruzamento automático: faturas pagas no extrato vs. itens no relatório de medição.")
+
+    tab_cruz, tab_bi = st.tabs(["🔍 Cruzar Extrato vs Medição", "📊 BI do Relatório"])
+
+    with tab_cruz:
+        st.markdown("#### Upload dos arquivos")
+        c1, c2 = st.columns(2)
+        f_ext = c1.file_uploader("📄 Extrato Detalhado (xlsx/csv)",
+                                  type=["xlsx","xls","csv"], key="mc_ext")
+        f_med = c2.file_uploader("📄 Relatório de Medição (xlsx/csv)",
+                                  type=["xlsx","xls","csv"], key="mc_med")
+
+        if f_ext and f_med:
+            if st.button("🔁 Cruzar agora", key="btn_cruzar", use_container_width=True):
+                with st.spinner("Processando…"):
+                    try:
+                        df_e = (pd.read_excel(f_ext)  if not f_ext.name.endswith(".csv")
+                                else pd.read_csv(f_ext, sep=None, engine="python"))
+                        df_e.columns = [str(c).strip() for c in df_e.columns]
+                        df_e = df_e.fillna("")
+
+                        df_m = (pd.read_excel(f_med) if not f_med.name.endswith(".csv")
+                                else pd.read_csv(f_med, sep=None, engine="python"))
+                        df_m.columns = [str(c).strip() for c in df_m.columns]
+                        df_m = df_m.fillna("")
+
+                        resultado = cruzar_medicao_extrato(df_e, df_m)
+                        st.session_state["medicao_cruzamento"] = resultado
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+                        st.code(traceback.format_exc())
+
+        res = st.session_state.get("medicao_cruzamento")
+        if res:
+            if "erro" in res:
+                st.error(res["erro"])
+                return
+
+            ausentes = res.get("ausentes", [])
+            ok_list  = res.get("ok",       [])
+            extras   = res.get("extras",   [])
+
+            # KPIs
+            kc1, kc2, kc3, kc4 = st.columns(4)
+            kc1.markdown(
+                f'<div class="kpi-box"><div class="kpi-value" style="color:#0B7A5F">{len(ok_list)}</div>'
+                f'<div class="kpi-label">Faturas OK</div></div>', unsafe_allow_html=True)
+            kc2.markdown(
+                f'<div class="kpi-box"><div class="kpi-value" style="color:#C41230">{len(ausentes)}</div>'
+                f'<div class="kpi-label">Ausentes no Relatório</div></div>', unsafe_allow_html=True)
+            kc3.markdown(
+                f'<div class="kpi-box"><div class="kpi-value" style="color:#A84010">{len(extras)}</div>'
+                f'<div class="kpi-label">No Rel. sem pagamento</div></div>', unsafe_allow_html=True)
+            kc4.markdown(
+                f'<div class="kpi-box"><div class="kpi-value">'
+                f'R$ {res.get("total_ausente_valor",0):,.2f}</div>'
+                f'<div class="kpi-label">Valor ausente</div></div>', unsafe_allow_html=True)
+
+            st.write("")
+
+            # Ausentes — o que precisa ser adicionado manualmente
+            if ausentes:
+                st.markdown(
+                    f'<div class="alert alert-r">⚠️ <b>{len(ausentes)} fatura(s)</b> pagas no extrato '
+                    f'NÃO estão no relatório de medição. Precisam ser adicionadas manualmente no sistema Sunne.</div>',
+                    unsafe_allow_html=True)
+                with st.expander(f"Ver {len(ausentes)} faturas ausentes — R$ {res['total_ausente_valor']:,.2f}"):
+                    df_aus = pd.DataFrame(ausentes)
+                    df_aus["valor"] = df_aus["valor"].apply(lambda x: f"R$ {x:,.2f}")
+                    df_aus.columns = [c.capitalize() for c in df_aus.columns]
+                    st.dataframe(df_aus, use_container_width=True, hide_index=True)
+                    st.download_button(
+                        "⬇ Exportar ausentes (CSV)",
+                        pd.DataFrame(ausentes).to_csv(index=False, sep=";").encode("utf-8-sig"),
+                        "faturas_ausentes.csv", "text/csv")
+            else:
+                st.markdown('<div class="alert alert-g">✅ Todas as faturas pagas constam no relatório de medição!</div>',
+                            unsafe_allow_html=True)
+
+            # OK
+            if ok_list:
+                with st.expander(f"✅ {len(ok_list)} faturas OK"):
+                    df_ok = pd.DataFrame(ok_list)
+                    df_ok["valor"] = df_ok["valor"].apply(lambda x: f"R$ {x:,.2f}")
+                    st.dataframe(df_ok, use_container_width=True, hide_index=True)
+
+            # Extras
+            if extras:
+                with st.expander(f"ℹ️ {len(extras)} itens no relatório sem pagamento no extrato"):
+                    st.caption("Podem ser faturas de competências anteriores ou divergências de UC.")
+                    df_ext2 = pd.DataFrame(extras)
+                    st.dataframe(df_ext2, use_container_width=True, hide_index=True)
+
+    with tab_bi:
+        st.markdown("#### BI a partir do Relatório de Medição")
+        f_bi = st.file_uploader("Relatório de Medição Sunne (.xlsx)", type=["xlsx","xls"], key="mc_bi")
+        sel_ger_bi = st.selectbox("Gerador", ["—"] + sorted({g["gerador"] for g in load_geradores()}), key="mc_ger_bi")
+        sel_comp_bi= st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi")
+
+        if f_bi and sel_ger_bi != "—" and sel_comp_bi:
+            if st.button("📊 Analisar", key="btn_bi_mc"):
+                with st.spinner("Analisando…"):
+                    try:
+                        medicao = parse_relatorio_medicao(f_bi.read())
+                        ger_obj = next((g for g in load_geradores()
+                                        if g.get("gerador","").lower() == sel_ger_bi.lower()), {})
+                        gerador_cfg = {
+                            "pct_desconto_gerador": clean_val(ger_obj.get("pct_desconto_gerador", 0.20)),
+                            "pct_taxa_admin":       clean_val(ger_obj.get("pct_taxa_admin",       0.07)),
+                            "enquadramento":        ger_obj.get("enquadramento", "GD1"),
+                        }
+                        ind = calcular_indicadores_bi(medicao, None, gerador_cfg)
+                        st.session_state["medicao_bi_ind"]  = ind
+                        st.session_state["medicao_bi_comp"] = sel_comp_bi
+                        st.session_state["medicao_bi_ger"]  = sel_ger_bi
+
+                        # Salva em histórico de análises
+                        hist_an = load_analises()
+                        hist_an.setdefault(sel_ger_bi, {})[sel_comp_bi] = {
+                            "indicadores": ind,
+                            "salvo_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        }
+                        save_analises(hist_an)
+                        st.success("Análise salva no histórico!")
+                    except Exception as e:
+                        st.error(str(e)); st.code(traceback.format_exc())
+
+        ind_bi = st.session_state.get("medicao_bi_ind")
+        if ind_bi:
+            comp_lbl = st.session_state.get("medicao_bi_comp","—")
+            ger_lbl  = st.session_state.get("medicao_bi_ger","—")
+            st.markdown(f"#### {ger_lbl} · {comp_lbl}")
+            c1,c2,c3,c4 = st.columns(4)
+            for col, lbl, val, fmt in [
+                (c1,"Fat. Bruto",   ind_bi.get("faturamento_bruto",0),   "R$ {:,.2f}"),
+                (c2,"Fat. Líquido", ind_bi.get("faturamento_liquido",0),  "R$ {:,.2f}"),
+                (c3,"Inadimplência",ind_bi.get("pct_inadimplencia",0),    "{:.1f}%"),
+                (c4,"Efic. Rateio", ind_bi.get("eficiencia_rateio",0),    "{:.1f}%"),
+            ]:
+                col.markdown(
+                    f'<div class="kpi-box"><div class="kpi-value">{fmt.format(val)}</div>'
+                    f'<div class="kpi-label">{lbl}</div></div>', unsafe_allow_html=True)
+            st.write("")
+            por_usina = ind_bi.get("por_usina",[])
+            if por_usina:
+                st.markdown("**Performance por Usina**")
+                df_pu = pd.DataFrame(por_usina)
+                df_pu.columns = ["Usina","Fat. Bruto","% Sunne","Tar. Banc.","Fat. Líquido","Conta Energia","Marketplace"]
+                st.dataframe(df_pu, use_container_width=True, hide_index=True)
+            insights = gerar_insights(ind_bi, None)
+            for nivel, msg in insights:
+                st.markdown(f'<div class="alert alert-{nivel}">{msg}</div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v12 · PÁGINA: AUDITORIA UFV / UCS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def page_auditoria():
+    st.title("Auditoria UFV / UCs")
+    st.caption("Saúde dos beneficiários e saúde do rateio — alertas automáticos para rebalanceamento.")
+
+    geradores    = load_geradores()
+    usinas       = load_usinas()
+    nomes_ger    = sorted({g["gerador"] for g in geradores})
+
+    col_ger, col_usi, col_comp = st.columns(3)
+    sel_ger  = col_ger.selectbox("Gerador", ["—"] + nomes_ger, key="aud_ger")
+    usinas_g = [u for u in usinas if u.get("gerador","").lower() == sel_ger.lower()] if sel_ger != "—" else []
+    nomes_usi= [u.get("ufv","") or u["uc"] for u in usinas_g]
+    sel_usi  = col_usi.selectbox("Usina", ["—"] + nomes_usi, key="aud_usi") if nomes_usi else col_usi.selectbox("Usina", ["—"], key="aud_usi_vz")
+    sel_comp = col_comp.text_input("Competência base (MM/AAAA)", placeholder="04/2026", key="aud_comp")
+
+    f_aud = st.file_uploader(
+        "📊 Planilha de Auditoria (.xlsx — formato Sunne)",
+        type=["xlsx","xls"], key="aud_file",
+        help="Suba a planilha de auditoria no padrão Sunne (Nafisah UFV7 / similar)")
+
+    if f_aud:
+        if st.button("🔬 Analisar Auditoria", key="btn_aud", use_container_width=True):
+            with st.spinner("Processando planilha de auditoria…"):
+                try:
+                    resultado_aud = parse_auditoria_planilha(f_aud.read())
+                    st.session_state["auditoria_resultado"] = resultado_aud
+                    st.session_state["auditoria_usina"]     = sel_usi
+                    st.session_state["auditoria_gerador"]   = sel_ger
+                    st.session_state["auditoria_comp"]      = sel_comp
+                except Exception as e:
+                    st.error(str(e)); st.code(traceback.format_exc())
+
+    res_aud = st.session_state.get("auditoria_resultado")
+    if not res_aud:
+        st.info("Faça upload da planilha e clique em Analisar para ver os resultados.")
+        return
+
+    ger_lbl  = st.session_state.get("auditoria_gerador","—")
+    usi_lbl  = st.session_state.get("auditoria_usina","—")
+    comp_lbl = st.session_state.get("auditoria_comp","—")
+
+    st.markdown(f"### {ger_lbl} · {usi_lbl} · {comp_lbl}")
+    st.caption(f"{res_aud['meses_analisados']} meses analisados")
+
+    # ── KPIs da usina ─────────────────────────────────────────────────────────
+    rs = res_aud.get("usina_resumo", {})
+    kc1, kc2, kc3, kc4 = st.columns(4)
+    for col, lbl, val, fmt in [
+        (kc1, "Geração total",   rs.get("geracao_total",  0), "{:,.0f} kWh"),
+        (kc2, "Consumo total",   rs.get("consumo_total",  0), "{:,.0f} kWh"),
+        (kc3, "Créditos totais", rs.get("creditos_total", 0), "{:,.0f} kWh"),
+        (kc4, "Saldo atual",     rs.get("saldo_atual",    0), "{:,.0f} kWh"),
+    ]:
+        col.markdown(
+            f'<div class="kpi-box"><div class="kpi-value" style="font-size:1.4rem">{fmt.format(val)}</div>'
+            f'<div class="kpi-label">{lbl}</div></div>', unsafe_allow_html=True)
+
+    st.write("")
+
+    # ── Alertas do rateio ─────────────────────────────────────────────────────
+    alertas_rat = res_aud.get("alertas_rateio", [])
+    if alertas_rat:
+        st.markdown('<div class="sec-head"><span class="sec-head-title">🏭 Saúde do Rateio</span><div class="sec-head-line"></div></div>', unsafe_allow_html=True)
+        for alrt in alertas_rat:
+            cls = "alert-r" if alrt["tipo"] == "critico" else "alert-y"
+            st.markdown(f'<div class="alert {cls}">{alrt["mensagem"]}</div>', unsafe_allow_html=True)
+
+        # Botão: criar tarefa de rateio automático
+        if any(a["tipo"] == "critico" for a in alertas_rat):
+            if st.button("📝 Criar tarefa de Atualização de Rateio", key="btn_aud_rateio"):
+                analista = st.session_state["user"]["name"]
+                uc_usina = next((u["uc"] for u in usinas if (u.get("ufv","") or u["uc"]) == usi_lbl), "")
+                desc_auto = (
+                    f"Auditoria {comp_lbl} — Alertas:\n"
+                    + "\n".join(f"- {a['mensagem']}" for a in alertas_rat)
+                )
+                new_task(
+                    titulo          = f"Atualizar Rateio — {usi_lbl} ({comp_lbl})",
+                    usina           = uc_usina,
+                    gerador         = ger_lbl,
+                    analista        = analista,
+                    tipo            = "Rateio",
+                    agendamento     = comp_lbl,
+                    descricao       = desc_auto,
+                    data_programada = datetime.now().strftime("%d/%m/%Y"),
+                )
+                st.success("✅ Tarefa de atualização de rateio criada automaticamente!")
+    else:
+        st.markdown('<div class="alert alert-g">✅ Saúde do rateio OK — nenhuma anomalia detectada.</div>',
+                    unsafe_allow_html=True)
+
+    # ── Alertas dos beneficiários ──────────────────────────────────────────────
+    alertas_ben = res_aud.get("alertas_ben", [])
+    st.write("")
+    st.markdown('<div class="sec-head"><span class="sec-head-title">👥 Saúde dos Beneficiários</span><div class="sec-head-line"></div></div>', unsafe_allow_html=True)
+
+    if alertas_ben:
+        alts_saldo  = [a for a in alertas_ben if a["tipo"] == "saldo_alto"]
+        alts_menos  = [a for a in alertas_ben if a["tipo"] == "recebendo_menos"]
+
+        if alts_saldo:
+            st.markdown(f'<div class="alert alert-y">💰 <b>{len(alts_saldo)} beneficiário(s)</b> com saldo acumulado alto (> 3 meses). Reduzir % de rateio.</div>',
+                        unsafe_allow_html=True)
+            with st.expander("Ver UCs com saldo alto"):
+                for a in alts_saldo:
+                    st.markdown(f"· {a['mensagem']}")
+
+        if alts_menos:
+            st.markdown(f'<div class="alert alert-r">📉 <b>{len(alts_menos)} beneficiário(s)</b> recebendo menos energia do que consomem. Aumentar % de rateio.</div>',
+                        unsafe_allow_html=True)
+            with st.expander("Ver UCs recebendo menos"):
+                for a in alts_menos:
+                    st.markdown(f"· {a['mensagem']}")
+    else:
+        st.markdown('<div class="alert alert-g">✅ Todos os beneficiários dentro dos parâmetros esperados.</div>',
+                    unsafe_allow_html=True)
+
+    # ── Tabela completa de beneficiários ──────────────────────────────────────
+    bens = res_aud.get("beneficiarios", [])
+    if bens:
+        st.write("")
+        with st.expander(f"📋 Ver todos os {len(bens)} beneficiários"):
+            df_ben = pd.DataFrame(bens)
+            df_ben.columns = [c.capitalize() for c in df_ben.columns]
+            if "Autonomia" in df_ben.columns:
+                def _color_aut(val):
+                    try:
+                        v = float(val)
+                        if v > 3:  return "background:#FFFBEC;color:#856404"
+                        if v < 0.5 and v > 0: return "background:#FFF0F3;color:#8B1530"
+                        return ""
+                    except Exception: return ""
+                st.dataframe(df_ben.style.applymap(_color_aut, subset=["Autonomia"]),
+                             use_container_width=True, hide_index=True)
+            else:
+                st.dataframe(df_ben, use_container_width=True, hide_index=True)
+
+    # ── Base do último rateio ─────────────────────────────────────────────────
+    rateio_base = res_aud.get("rateio_base", [])
+    if rateio_base:
+        st.write("")
+        with st.expander(f"📂 Base do último rateio ({len(rateio_base)} UCs)"):
+            df_rb = pd.DataFrame(rateio_base)
+            df_rb.columns = [c.capitalize() for c in df_rb.columns]
+            st.dataframe(df_rb, use_container_width=True, hide_index=True)
+            # Exportar planilha de rateio pré-preenchida
+            st.download_button(
+                "⬇ Exportar base do rateio (.xlsx)",
+                df_to_excel_bytes(df_rb),
+                f"rateio_base_{usi_lbl}_{comp_lbl.replace('/','_')}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
 
 # ── DATA UTILS ────────────────────────────────────────────────────────────────
 def normalize_uc(val):
@@ -1387,36 +2463,86 @@ def render_sidebar():
 
         st.session_state.setdefault("page", "dash")
 
-        # ── Nav ───────────────────────────────────────────────────────────────
-        st.markdown('<div class="sec-label">Operação</div>', unsafe_allow_html=True)
-        for key, label in [("dash","Dashboard"),("geradores","Geradores"),
-                           ("usinas","Usinas"),("atividades","Atividades")]:
-            if st.button(label, key=f"nav_{key}"):
-                st.session_state["page"] = key
+        role = u.get("role", "user")
 
-        st.markdown('<div class="sec-label">Energia</div>', unsafe_allow_html=True)
-        for key, label in [("geracao","Geração"),("backoffice","Backoffice")]:
-            if st.button(label, key=f"nav_{key}"):
-                st.session_state["page"] = key
+        # ── Alertas rápidos na sidebar ────────────────────────────────────────
+        tasks_sb  = load_tasks()
+        minhas_sb = [t for t in tasks_sb if t.get("analista","").lower() == u["name"].lower()]
+        atras_sb  = [t for t in minhas_sb if task_esta_atrasada(t)]
+        hoje_sb   = [t for t in minhas_sb if task_vence_hoje(t)]
+        if atras_sb:
+            st.markdown(
+                f'<div style="background:#FFF0F3;border:1px solid #FFC8D0;border-radius:8px;'
+                f'padding:6px 10px;margin-bottom:6px;font-size:12px;color:#8B1530">'
+                f'⏰ <b>{len(atras_sb)}</b> tarefa(s) atrasada(s)</div>',
+                unsafe_allow_html=True)
+        if hoje_sb:
+            st.markdown(
+                f'<div style="background:#FFFBEC;border:1px solid #FFE580;border-radius:8px;'
+                f'padding:6px 10px;margin-bottom:6px;font-size:12px;color:#7A5010">'
+                f'📅 <b>{len(hoje_sb)}</b> vence(m) hoje</div>',
+                unsafe_allow_html=True)
 
-        st.markdown('<div class="sec-label">Financeiro</div>', unsafe_allow_html=True)
-        for key, label in [("rateio","Rateio"),("faturamento","Faturamento"),
-                           ("bi_analise","Análise BI")]:
-            if st.button(label, key=f"nav_{key}"):
-                st.session_state["page"] = key
+        # ── Nav ADMIN — seção Gestão primeiro ─────────────────────────────────
+        if role == "admin":
+            st.markdown('<div class="sec-label">👔 Gestão</div>', unsafe_allow_html=True)
+            if st.button("Painel do Gestor", key="nav_gestor_dash", use_container_width=True):
+                st.session_state["page"] = "gestor_dash"
+                st.rerun()
 
-        st.markdown('<div class="sec-label">Automação</div>', unsafe_allow_html=True)
-        if st.button("Captura Automática", key="nav_automacao"):
+        # ── Nav ANALISTA / COMUM ──────────────────────────────────────────────
+        st.markdown('<div class="sec-label">📋 Operação</div>', unsafe_allow_html=True)
+        for key, label in [
+            ("dash",       "Dashboard / Agenda"),
+            ("atividades", "Atividades"),
+            ("geradores",  "Geradores"),
+            ("usinas",     "Usinas"),
+        ]:
+            if st.button(label, key=f"nav_{key}", use_container_width=True):
+                st.session_state["page"] = key
+                st.rerun()
+
+        st.markdown('<div class="sec-label">🔍 Análise Mensal</div>', unsafe_allow_html=True)
+        for key, label in [
+            ("medicao",   "Rel. de Medição"),
+            ("auditoria", "Auditoria UFV / UCs"),
+        ]:
+            if st.button(label, key=f"nav_{key}", use_container_width=True):
+                st.session_state["page"] = key
+                st.rerun()
+
+        st.markdown('<div class="sec-label">⚡ Energia</div>', unsafe_allow_html=True)
+        for key, label in [
+            ("geracao",    "Geração"),
+            ("backoffice", "Backoffice"),
+        ]:
+            if st.button(label, key=f"nav_{key}", use_container_width=True):
+                st.session_state["page"] = key
+                st.rerun()
+
+        st.markdown('<div class="sec-label">💰 Financeiro</div>', unsafe_allow_html=True)
+        for key, label in [
+            ("rateio",      "Rateio"),
+            ("faturamento", "Faturamento"),
+            ("bi_analise",  "Análise BI"),
+        ]:
+            if st.button(label, key=f"nav_{key}", use_container_width=True):
+                st.session_state["page"] = key
+                st.rerun()
+
+        st.markdown('<div class="sec-label">🤖 Automação</div>', unsafe_allow_html=True)
+        if st.button("Captura Automática", key="nav_automacao", use_container_width=True):
             st.session_state["page"] = "automacao"
+            st.rerun()
 
-        st.markdown('<div class="sec-label">Config</div>', unsafe_allow_html=True)
-        if st.button("Integrações Google", key="nav_integracoes"):
+        st.markdown('<div class="sec-label">⚙️ Config</div>', unsafe_allow_html=True)
+        if st.button("Integrações Google", key="nav_integracoes", use_container_width=True):
             st.session_state["page"] = "integracoes"
+            st.rerun()
 
         # ── Divider + Sair ────────────────────────────────────────────────────
         st.markdown('<div class="sb-divider"></div>', unsafe_allow_html=True)
-        if st.button("Sair", key="nav_sair"):
-            # Limpa só o estado de usuário — mantém page etc limpando tudo
+        if st.button("Sair", key="nav_sair", use_container_width=True):
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
@@ -1428,7 +2554,11 @@ def render_sidebar():
 
 def page_dashboard():
     user = st.session_state["user"]; an = user["name"]
-    st.title("Dashboard")
+    agora = datetime.now()
+    dia_semana = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"][agora.weekday()]
+    st.markdown(
+        f'<div style="margin-bottom:0.2rem"><h1 style="font-size:1.6rem;font-weight:500;margin:0">Olá, {an.split()[0]} 👋</h1><p style="color:var(--ink-l);font-size:13px;margin:2px 0 0">{dia_semana}, {agora.strftime("%d/%m/%Y")}</p></div>',
+        unsafe_allow_html=True)
 
     # ── Troca OAuth code se presente na URL (retorno do Google) ──────────────
     params = st.query_params
@@ -1466,6 +2596,120 @@ def page_dashboard():
         st.markdown(f'<div class="notif-banner">{"<br>".join(linhas)}</div>',
                     unsafe_allow_html=True)
 
+    # ── v12: AGENDA DO DIA ────────────────────────────────────────────────────
+    agora_d = datetime.now()
+    st.markdown("<div class='sdiv'></div>", unsafe_allow_html=True)
+    col_ag, col_kpis = st.columns([3, 2], gap="large")
+
+    with col_ag:
+        st.markdown('<div class="sec-head"><span class="sec-head-title">📅 Agenda de Hoje</span>'
+                    '<div class="sec-head-line"></div></div>', unsafe_allow_html=True)
+        if atrasadas:
+            st.markdown(
+                f'<div class="alert alert-r" style="margin-bottom:8px">'
+                f'⏰ <b>{len(atrasadas)} tarefa(s) atrasada(s)</b> — atenção imediata</div>',
+                unsafe_allow_html=True)
+            for t in sorted(atrasadas, key=lambda x: sla_days(x), reverse=True)[:5]:
+                dias_at = sla_days(t)
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;'
+                    f'border-bottom:0.5px solid var(--border)">'
+                    f'<div style="width:8px;height:8px;border-radius:50%;background:#C41230;flex-shrink:0"></div>'
+                    f'<div style="flex:1;min-width:0">'
+                    f'<div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{t["titulo"]}</div>'
+                    f'<div style="font-size:11px;color:var(--ink-l)">{t.get("tipo","—")} · {t.get("usina","—")}</div>'
+                    f'</div>'
+                    f'<span style="background:#FFF0F3;color:#8B1530;border-radius:4px;'
+                    f'padding:2px 7px;font-size:11px;font-weight:600;white-space:nowrap">{dias_at}d atraso</span>'
+                    f'</div>', unsafe_allow_html=True)
+
+        if vence_hoje:
+            st.markdown('<div style="font-size:12px;font-weight:600;color:var(--ink-l);'
+                        'text-transform:uppercase;letter-spacing:.06em;margin-top:10px;margin-bottom:4px">'
+                        'Para hoje</div>', unsafe_allow_html=True)
+            for t in vence_hoje[:5]:
+                dp = t.get("data_programada","—")
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;'
+                    f'border-bottom:0.5px solid var(--border)">'
+                    f'<div style="width:8px;height:8px;border-radius:50%;background:#F36E21;flex-shrink:0"></div>'
+                    f'<div style="flex:1;min-width:0">'
+                    f'<div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{t["titulo"]}</div>'
+                    f'<div style="font-size:11px;color:var(--ink-l)">{t.get("tipo","—")} · {t.get("usina","—")}</div>'
+                    f'</div>'
+                    f'<span style="background:#FFF5EC;color:#A84010;border-radius:4px;padding:2px 7px;font-size:11px">Hoje</span>'
+                    f'</div>', unsafe_allow_html=True)
+
+        proximas = sorted(
+            [t for t in minhas_tasks
+             if t["status"] not in ("Concluido","Cancelado")
+             and not task_esta_atrasada(t) and not task_vence_hoje(t)],
+            key=lambda t: (datetime.strptime(t["data_programada"],"%d/%m/%Y")
+                           if t.get("data_programada") and "/" in str(t.get("data_programada",""))
+                           else datetime(2099,1,1)))[:5]
+
+        if proximas:
+            st.markdown('<div style="font-size:12px;font-weight:600;color:var(--ink-l);'
+                        'text-transform:uppercase;letter-spacing:.06em;margin-top:10px;margin-bottom:4px">'
+                        'Próximas</div>', unsafe_allow_html=True)
+            for t in proximas:
+                dp = t.get("data_programada","—")
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;'
+                    f'border-bottom:0.5px solid var(--border)">'
+                    f'<div style="width:8px;height:8px;border-radius:50%;background:#A0C4E8;flex-shrink:0"></div>'
+                    f'<div style="flex:1;min-width:0">'
+                    f'<div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{t["titulo"]}</div>'
+                    f'<div style="font-size:11px;color:var(--ink-l)">{t.get("tipo","—")}</div>'
+                    f'</div>'
+                    f'<span style="font-size:11px;color:var(--ink-l);white-space:nowrap">{dp}</span>'
+                    f'</div>', unsafe_allow_html=True)
+
+        if not atrasadas and not vence_hoje:
+            st.markdown('<div class="alert alert-g">✅ Nenhuma tarefa urgente para hoje!</div>',
+                        unsafe_allow_html=True)
+
+    with col_kpis:
+        st.markdown('<div class="sec-head"><span class="sec-head-title">Seus KPIs</span>'
+                    '<div class="sec-head-line"></div></div>', unsafe_allow_html=True)
+        kp_ab   = sum(1 for t in minhas_tasks if t["status"] == "Em aberto")
+        kp_and  = sum(1 for t in minhas_tasks if t["status"] == "Em andamento")
+        kp_trav = sum(1 for t in minhas_tasks if t["status"] == "Travado")
+        kp_conc = sum(1 for t in minhas_tasks if t["status"] == "Concluido")
+        kp_tot  = len(minhas_tasks)
+        kp_pct  = round(kp_conc / kp_tot * 100) if kp_tot else 0
+        for lbl, val, cor in [
+            ("Atrasadas",    len(atrasadas), "#C41230"),
+            ("Em aberto",    kp_ab,          "#A84010"),
+            ("Em andamento", kp_and,         "#185FA5"),
+            ("Travadas",     kp_trav,        "#6B1A8A"),
+            ("Concluídas",   kp_conc,        "#0B7A5F"),
+        ]:
+            st.markdown(
+                f'<div class="kpi-box" style="margin-bottom:6px;text-align:left;display:flex;'
+                f'align-items:center;gap:10px;padding:.6rem .8rem">'
+                f'<div class="kpi-value" style="font-size:1.5rem;color:{cor};min-width:32px">{val}</div>'
+                f'<div class="kpi-label" style="text-align:left;font-size:12px">{lbl}</div>'
+                f'</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="margin-top:8px">'
+            f'<div style="font-size:11px;color:var(--ink-l);margin-bottom:3px">Progresso do mês · {kp_pct}%</div>'
+            f'<div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">'
+            f'<div style="width:{kp_pct}%;height:100%;background:#F36E21;border-radius:4px"></div>'
+            f'</div></div>', unsafe_allow_html=True)
+
+        mes_atual_str = agora_d.strftime("%m/%Y")
+        tasks_mes = [t for t in minhas_tasks if t.get("agendamento","") == mes_atual_str]
+        if not tasks_mes:
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="alert alert-y" style="font-size:12px">'
+                f'⚠️ Cronograma de {mes_atual_str} não gerado.<br>'
+                f'Peça ao gestor para gerar via <b>Painel do Gestor</b>.</div>',
+                unsafe_allow_html=True)
+
+    st.markdown("<div class='sdiv'></div>", unsafe_allow_html=True)
+
     ab    = [t for t in tasks if t["status"] == "Em aberto"]
     and_  = [t for t in tasks if t["status"] == "Em andamento"]
     trav  = [t for t in tasks if t["status"] == "Travado"]
@@ -1500,7 +2744,7 @@ def page_dashboard():
                 c = clean_val(r.get("consumo_total",0)); s = clean_val(r.get("saldo_credito",0))
                 if c > 0 and s/c > 6:
                     ui = next((x for x in usis if str(x["uc"]) == str(uc)), {})
-                    alerts.append(("y", f" Usina <b>{ui.get('ufv',uc)}</b>: saldo acumulado > 6 meses."))
+                    alerts.append(("y", f"💰 Usina <b>{ui.get('ufv',uc)}</b>: saldo acumulado > 6 meses."))
         if not alerts:
             st.markdown('<div class="alert alert-g">✅ Nenhum alerta operacional.</div>', unsafe_allow_html=True)
         else:
@@ -3416,7 +4660,9 @@ def main():
         st.markdown("""
         <style>
         [data-testid="stAppViewContainer"] {
-          background: linear-gradient(135deg, #220012 0%, #33001A 55%, #4D0028 100%) !important;
+          background: radial-gradient(ellipse 80% 60% at 50% -10%,
+            rgba(243,110,33,.08) 0%, transparent 60%),
+            var(--bg) !important;
           min-height: 100vh;
         }
         [data-testid="stSidebar"] { display: none !important; }
@@ -3430,37 +4676,37 @@ def main():
 
             # Card de login
             st.markdown("""
-            <div style="background:rgba(255,255,255,.97);border-radius:24px;
-              padding:3rem 2.8rem 2.5rem;box-shadow:0 32px 80px rgba(0,0,0,.4);">
-
+            <div style="background:var(--surface);border:1px solid var(--border-m);
+              border-radius:20px;padding:2.8rem 2.5rem 0;
+              box-shadow:0 20px 60px rgba(0,0,0,.7),0 0 80px rgba(243,110,33,.05);">
               <div style="display:flex;align-items:center;gap:12px;margin-bottom:.5rem">
-                <div style="width:40px;height:40px;background:linear-gradient(135deg,#F36E21,#D45E18);
-                  border-radius:10px;display:flex;align-items:center;justify-content:center;
-                  font-size:20px">☀️</div>
+                <div style="width:38px;height:38px;
+                  background:linear-gradient(135deg,#F36E21,#D45E14);
+                  border-radius:9px;display:flex;align-items:center;
+                  justify-content:center;font-size:18px;
+                  box-shadow:0 0 20px rgba(243,110,33,.35)">☀️</div>
                 <div>
-                  <div style="font-family:'Playfair Display',serif;font-size:1.5rem;
-                    color:#33001A;font-weight:500;line-height:1">Sunne</div>
-                  <div style="font-size:10px;color:#9B7080;letter-spacing:.12em;
-                    text-transform:uppercase">Hub Operacional</div>
+                  <div style="font-family:'Syne',sans-serif;font-size:1.25rem;
+                    color:#F0F0FF;font-weight:700;line-height:1;letter-spacing:-.02em">Sunne</div>
+                  <div style="font-size:9px;color:#606080;letter-spacing:.14em;
+                    text-transform:uppercase;margin-top:2px">Hub Operacional</div>
                 </div>
               </div>
-
-              <div style="height:1px;background:rgba(51,0,26,.08);margin:1.5rem 0"></div>
-
-              <p style="font-size:13px;color:#5C3545;margin-bottom:1.8rem;line-height:1.5">
-                Acesse sua plataforma de gestão de geração distribuída.
+              <div style="height:1px;background:rgba(255,255,255,.06);margin:1.4rem 0"></div>
+              <p style="font-size:12.5px;color:#606080;margin-bottom:1.6rem;line-height:1.6">
+                Plataforma de gestão operacional de geração distribuída.
               </p>
             </div>
             """, unsafe_allow_html=True)
 
             with st.form("login_form"):
-                st.markdown('<p style="font-size:11px;font-weight:700;color:#5C3545;'
-                            'text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">'
+                st.markdown('<p style="font-size:10.5px;font-weight:600;color:#606080;'
+                            'text-transform:uppercase;letter-spacing:.10em;margin-bottom:4px">'
                             'E-mail</p>', unsafe_allow_html=True)
                 email_inp = st.text_input("", placeholder="seu@sunne.com.br",
                                           label_visibility="collapsed", key="login_email")
-                st.markdown('<p style="font-size:11px;font-weight:700;color:#5C3545;'
-                            'text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;'
+                st.markdown('<p style="font-size:10.5px;font-weight:600;color:#606080;'
+                            'text-transform:uppercase;letter-spacing:.10em;margin-bottom:4px;'
                             'margin-top:.8rem">Senha</p>', unsafe_allow_html=True)
                 senha_inp = st.text_input("", type="password",
                                           label_visibility="collapsed", key="login_senha")
@@ -3475,13 +4721,13 @@ def main():
                     st.rerun()
                 else:
                     st.markdown(
-                        '<div class="alert alert-r" style="border-radius:12px;margin-top:.5rem">'
-                        '❌ E-mail ou senha incorretos.</div>',
+                        '<div class="alert alert-r" style="margin-top:.6rem">'
+                        '⛔ E-mail ou senha incorretos.</div>',
                         unsafe_allow_html=True)
 
             st.markdown(
-                '<p style="text-align:center;font-size:11px;color:rgba(255,255,255,.3);'
-                'margin-top:1.5rem">© 2025 Sunne · Gestão de Energia Solar</p>',
+                '<p style="text-align:center;font-size:10.5px;color:#3A3A58;'
+                'margin-top:1.4rem;font-family:Geist Mono,monospace">© 2026 Sunne · Hub Operacional v12</p>',
                 unsafe_allow_html=True)
         return
 
@@ -3515,8 +4761,15 @@ def main():
     render_sidebar()
 
     page  = st.session_state.get("page","dash")
+
+    # ── Protege páginas admin ─────────────────────────────────────────────────
+    user_role = st.session_state["user"].get("role","user")
+    if page == "gestor_dash" and user_role != "admin":
+        page = "dash"
+
     pages = {
         "dash":         page_dashboard,
+        "gestor_dash":  page_gestor_dashboard,
         "geradores":    page_geradores,
         "usinas":       page_usinas,
         "atividades":   page_atividades,
@@ -3527,6 +4780,8 @@ def main():
         "bi_analise":   page_bi_analise,
         "automacao":    page_automacao,
         "integracoes":  page_integracoes,
+        "medicao":      page_medicao_cruzamento,
+        "auditoria":    page_auditoria,
     }
     pages.get(page, page_dashboard)()
 
