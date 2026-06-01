@@ -59,7 +59,7 @@ SUNNE_CSS = """
 
   /* ── Text ── */
   --text-1:      #F0F0FF;
-  --text-2:      #A0A0C0;
+  --text-2:      #ffffff;
   --text-3:      #606080;
   --text-4:      #3A3A58;
 
@@ -111,7 +111,7 @@ html, body, [class*="css"] {
 
 /* ── Scrollbar ──────────────────────────────────────────────────── */
 ::-webkit-scrollbar              { width: 4px; height: 4px; }
-::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-track        { background: #32001a; }
 ::-webkit-scrollbar-thumb        { background: var(--border-m); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover  { background: var(--border-h); }
 
@@ -414,7 +414,7 @@ h3 {
 
 /* ── KPI Card ─────────────────────────────────────────────────── */
 .kpi-box {
-  background: var(--surface);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--r-l);
   padding: 1.1rem 1.3rem .9rem;
