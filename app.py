@@ -1500,7 +1500,7 @@ def page_medicao_cruzamento():
         st.markdown("#### BI a partir do Relatório de Medição")
         f_bi = st.file_uploader("Relatório de Medição Sunne (.xlsx)", type=["xlsx","xls"], key="mc_bi_aba_relatorio_unique")
         sel_ger_bi = st.selectbox("Gerador", ["—"] + sorted({g["gerador"] for g in load_geradores()}), key="mc_ger_bi_unique_faturamento")
-        sel_comp_bi= st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi")
+        sel_comp_bi = st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi")
 
         if f_bi and sel_ger_bi != "—" and sel_comp_bi:
             if st.button("📊 Analisar", key="btn_bi_mc"):
