@@ -1420,19 +1420,19 @@ def page_medicao_cruzamento():
 
     with tab_cruz:
         st.markdown("#### Parâmetros Operacionais e Upload")
-        comp_alvo = st.text_input("Competência de Pagamento para Filtrar (MM/AAAA)", value="05/2026", help="Filtra pagamentos realizados de 01 a 31 do mês informado")
+        comp_alvo = st.text_input("Competência de Pagamento para Filtrar (MM/AAAA)", value="05/2026", help="Filtra pagamentos realizados de 01 a 31 do mês informado", key="mc_comp_filtro_real_v12")
         
         c1, c2 = st.columns(2)
-        f_ext = c1.file_uploader("📄 Extrato Detalhado (xlsx/csv)", type=["xlsx","xls","csv"], key="mc_ext")
+        f_ext = c1.file_uploader("📄 Extrato Detalhado (xlsx/csv)", type=["xlsx","xls","csv"], key="mc_ext_planilha_caixa_v12")
         
         with c2:
             st.markdown("<p style='font-size:11.5px; font-weight:600; color:var(--text-3); text-transform:uppercase;'>Relatórios de Medição (Até 3 arquivos simultâneos)</p>", unsafe_allow_html=True)
-            f_med1 = st.file_uploader("Relatório de Medição 1 (Obrigatório)", type=["xlsx","xls","csv"], key="mc_med1")
-            f_med2 = st.file_uploader("Relatório de Medição 2 (Opcional)", type=["xlsx","xls","csv"], key="mc_med2")
-            f_med3 = st.file_uploader("Relatório de Medição 3 (Opcional)", type=["xlsx","xls","csv"], key="mc_med3")
+            f_med1 = st.file_uploader("Relatório de Medição 1 (Obrigatório)", type=["xlsx","xls","csv"], key="mc_med1_modalidade_a_v12")
+            f_med2 = st.file_uploader("Relatório de Medição 2 (Opcional)", type=["xlsx","xls","csv"], key="mc_med2_modalidade_b_v12")
+            f_med3 = st.file_uploader("Relatório de Medição 3 (Opcional)", type=["xlsx","xls","csv"], key="mc_med3_modalidade_c_v12")
 
         if f_ext and f_med1:
-            if st.button("🔁 Cruzar agora", key="btn_cruzar", use_container_width=True):
+            if st.button("🔁 Cruzar agora", key="btn_executar_cruzamento_completo_v12", use_container_width=True):
                 with st.spinner("Processando e aplicando filtros de pagamento real…"):
                     try:
                         df_e = pd.read_excel(f_ext) if not f_ext.name.endswith(".csv") else pd.read_csv(f_ext, sep=None, engine="python")
@@ -1481,7 +1481,7 @@ def page_medicao_cruzamento():
                     df_aus["valor"] = df_aus["valor"].apply(lambda x: f"R$ {x:,.2f}")
                     df_aus.columns = [c.capitalize() for c in df_aus.columns]
                     st.dataframe(df_aus, use_container_width=True, hide_index=True)
-                    st.download_button("⬇ Exportar ausentes (CSV)", df_aus.to_csv(index=False, sep=";").encode("utf-8-sig"), "faturas_ausentes.csv", "text/csv")
+                    st.download_button("⬇ Exportar ausentes (CSV)", df_aus.to_csv(index=False, sep=";").encode("utf-8-sig"), "faturas_ausentes.csv", "text/csv", key="btn_download_ausentes_csv_v12")
             else:
                 st.markdown('<div class="alert alert-g">✅ Todas as faturas pagas no mês constam nos relatórios de medição informados!</div>', unsafe_allow_html=True)
 
@@ -1498,12 +1498,12 @@ def page_medicao_cruzamento():
 
     with tab_bi:
         st.markdown("#### BI a partir do Relatório de Medição")
-        f_bi = st.file_uploader("Relatório de Medição Sunne (.xlsx)", type=["xlsx","xls"], key="mc_bi_aba_relatorio_unique")
-        sel_ger_bi = st.selectbox("Gerador", ["—"] + sorted({g["gerador"] for g in load_geradores()}), key="mc_ger_bi_unique_faturamento")
-        sel_comp_bi = st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi")
+        f_bi = st.file_uploader("Relatório de Medição Sunne (.xlsx)", type=["xlsx","xls"], key="mc_bi_uploader_aba_bi_v12")
+        sel_ger_bi = st.selectbox("Gerador", ["—"] + sorted({g["gerador"] for g in load_geradores()}), key="mc_ger_bi_selectbox_aba_bi_v12")
+        sel_comp_bi = st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi_text_input_aba_bi_v12")
 
         if f_bi and sel_ger_bi != "—" and sel_comp_bi:
-            if st.button("📊 Analisar", key="btn_bi_mc"):
+            if st.button("📊 Analisar", key="btn_bi_mc_executar_analise_v12"):
                 with st.spinner("Analisando…"):
                     try:
                         medicao = parse_relatorio_medicao(f_bi.read())
@@ -1551,67 +1551,6 @@ def page_medicao_cruzamento():
             insights = gerar_insights(ind_bi, None)
             for nivel, msg in insights:
                 st.markdown(f'<div class="alert alert-{nivel}">{msg}</div>', unsafe_allow_html=True)
-    with tab_bi:
-        st.markdown("#### BI a partir do Relatório de Medição")
-        f_bi = st.file_uploader("Relatório de Medição Sunne (.xlsx)", type=["xlsx","xls"], key="mc_bi")
-        sel_ger_bi = st.selectbox("Gerador", ["—"] + sorted({g["gerador"] for g in load_geradores()}), key="mc_ger_bi")
-        sel_comp_bi= st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi")
-
-        if f_bi and sel_ger_bi != "—" and sel_comp_bi:
-            if st.button("📊 Analisar", key="btn_bi_mc"):
-                with st.spinner("Analisando…"):
-                    try:
-                        medicao = parse_relatorio_medicao(f_bi.read())
-                        ger_obj = next((g for g in load_geradores()
-                                        if g.get("gerador","").lower() == sel_ger_bi.lower()), {})
-                        gerador_cfg = {
-                            "pct_desconto_gerador": clean_val(ger_obj.get("pct_desconto_gerador", 0.20)),
-                            "pct_taxa_admin":       clean_val(ger_obj.get("pct_taxa_admin",       0.07)),
-                            "enquadramento":        ger_obj.get("enquadramento", "GD1"),
-                        }
-                        ind = calcular_indicadores_bi(medicao, None, gerador_cfg)
-                        st.session_state["medicao_bi_ind"]  = ind
-                        st.session_state["medicao_bi_comp"] = sel_comp_bi
-                        st.session_state["medicao_bi_ger"]  = sel_ger_bi
-
-                        # Salva em histórico de análises
-                        hist_an = load_analises()
-                        hist_an.setdefault(sel_ger_bi, {})[sel_comp_bi] = {
-                            "indicadores": ind,
-                            "salvo_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        }
-                        save_analises(hist_an)
-                        st.success("Análise salva no histórico!")
-                    except Exception as e:
-                        st.error(str(e)); st.code(traceback.format_exc())
-
-        ind_bi = st.session_state.get("medicao_bi_ind")
-        if ind_bi:
-            comp_lbl = st.session_state.get("medicao_bi_comp","—")
-            ger_lbl  = st.session_state.get("medicao_bi_ger","—")
-            st.markdown(f"#### {ger_lbl} · {comp_lbl}")
-            c1,c2,c3,c4 = st.columns(4)
-            for col, lbl, val, fmt in [
-                (c1,"Fat. Bruto",   ind_bi.get("faturamento_bruto",0),   "R$ {:,.2f}"),
-                (c2,"Fat. Líquido", ind_bi.get("faturamento_liquido",0),  "R$ {:,.2f}"),
-                (c3,"Inadimplência",ind_bi.get("pct_inadimplencia",0),    "{:.1f}%"),
-                (c4,"Efic. Rateio", ind_bi.get("eficiencia_rateio",0),    "{:.1f}%"),
-            ]:
-                col.markdown(
-                    f'<div class="kpi-box"><div class="kpi-value">{fmt.format(val)}</div>'
-                    f'<div class="kpi-label">{lbl}</div></div>', unsafe_allow_html=True)
-            st.write("")
-            por_usina = ind_bi.get("por_usina",[])
-            if por_usina:
-                st.markdown("**Performance por Usina**")
-                df_pu = pd.DataFrame(por_usina)
-                df_pu.columns = ["Usina","Fat. Bruto","% Sunne","Tar. Banc.","Fat. Líquido","Conta Energia","Marketplace"]
-                st.dataframe(df_pu, use_container_width=True, hide_index=True)
-            insights = gerar_insights(ind_bi, None)
-            for nivel, msg in insights:
-                st.markdown(f'<div class="alert alert-{nivel}">{msg}</div>', unsafe_allow_html=True)
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # v12 · PÁGINA: AUDITORIA UFV / UCS
 # ══════════════════════════════════════════════════════════════════════════════
