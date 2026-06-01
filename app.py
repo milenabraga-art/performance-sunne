@@ -954,42 +954,54 @@ def gerar_cronograma_mensal(ano: int, mes: int, analista: str) -> int:
 
 def cruzar_medicao_extrato(df_extrato: "pd.DataFrame", lista_df_medicao: list, competencia_alvo: str) -> dict:
     """
-    Racional Operacional Refinado:
-    1. Varre o Extrato Detalhado procurando a coluna 'data do pagamento boleto sunne'.
+    Racional Operacional Corrigido:
+    1. Varre o Extrato Detalhado procurando as colunas de data de pagamento e 'total pago'.
     2. Filtra e engloba todas as faturas liquidadas no mês/ano (Ex: 05/2026 de 01/05 a 31/05).
     3. Consolida todas as chaves (UC + Competência) encontradas em até 3 relatórios de medição.
     4. Compara uma a uma, sinalizando o que não estiver presente para inclusão.
     """
     col_uc_e  = next((c for c in df_extrato.columns if "número da uc" in c.lower() or "numero da uc" in c.lower() or c.lower() == "uc"), None)
     col_st_e  = next((c for c in df_extrato.columns if "status" in c.lower()), None)
-    col_dt_e  = next((c for c in df_extrato.columns if "data do pagamento boleto sunne" in c.lower() or "data de pagamento" in c.lower() or "pagamento" in c.lower()), None)
-    col_val_e = next((c for c in df_extrato.columns if "total a pagar" in c.lower()), None)
+    col_dt_e  = next((c for c in df_extrato.columns if "data do pagamento" in c.lower() or "pagamento" in c.lower() or "data" in c.lower()), None)
+    col_val_e = next((c for c in df_extrato.columns if "total pago" in c.lower() or "total a pagar" in c.lower() or "valor" in c.lower()), None)
     col_comp_e= next((c for c in df_extrato.columns if "competência" in c.lower() or "competencia" in c.lower()), None)
     col_tit_e = next((c for c in df_extrato.columns if "titular" in c.lower() or "nome" in c.lower()), None)
 
-    if not col_uc_e: return {"erro": "Coluna 'Número da UC' não encontrada no extrato."}
-    if not col_dt_e: return {"erro": "Coluna 'Data do Pagamento Boleto Sunne' não encontrada no extrato."}
+    if not col_uc_e: return {"erro": "Coluna identificadora de UC não encontrada no extrato."}
+    if not col_dt_e: return {"erro": "Coluna de data de pagamento não identificada no extrato."}
 
     try:
         tgt_mes, tgt_ano = competencia_alvo.strip().split("/")
+        tgt_mes = int(tgt_mes)
+        tgt_ano = int(tgt_ano)
     except:
         return {"erro": "Formato de competência inválido. Preencha como MM/AAAA (Ex: 05/2026)."}
 
-    # Filtra as linhas do extrato cuja data real de pagamento pertence ao escopo mensal alvo
     linhas_filtradas = []
     for _, row in df_extrato.iterrows():
-        dt_str = str(row[col_dt_e]).strip()
+        # Filtro de Status 'Pago' facultativo
         if col_st_e and str(row[col_st_e]).strip() != "":
-            if "pago" not in str(row[col_st_e]).lower(): continue
+            if "pago" not in str(row[col_st_e]).lower(): 
+                continue
 
+        val_dt = row[col_dt_e]
         match_date = False
-        if "/" in dt_str:
-            parts = dt_str.split("/")
-            if len(parts) >= 3 and parts[1].zfill(2) == tgt_mes.zfill(2) and parts[2][:4] == tgt_ano: match_date = True
-        elif "-" in dt_str:
-            parts = dt_str.split("-")
-            if len(parts) >= 3 and parts[1].zfill(2) == tgt_mes.zfill(2) and parts[0] == tgt_ano: match_date = True
-            
+        
+        # Converte de forma robusta Timestamps do pandas ou strings de data
+        dt_parsed = pd.to_datetime(val_dt, errors='coerce')
+        if pd.notna(dt_parsed):
+            if dt_parsed.month == tgt_mes and dt_parsed.year == tgt_ano:
+                match_date = True
+        else:
+            dt_str = str(val_dt).strip()
+            import re
+            digits = re.findall(r'\d+', dt_str)
+            if len(digits) >= 3:
+                if len(digits[0]) == 4: # Formato YYYY-MM-DD
+                    if int(digits[1]) == tgt_mes and int(digits[0]) == tgt_ano: match_date = True
+                elif len(digits[2]) >= 4: # Formato DD/MM/YYYY
+                    if int(digits[1]) == tgt_mes and int(digits[2][:4]) == tgt_ano: match_date = True
+
         if match_date:
             linhas_filtradas.append(row)
 
@@ -1014,7 +1026,6 @@ def cruzar_medicao_extrato(df_extrato: "pd.DataFrame", lista_df_medicao: list, c
                 medicao_set.add((uc_m_norm, comp_m))
                 medicao_set.add((uc_m_norm, "—"))
 
-    # Auditoria de ausências
     ok, ausentes = [], []
     for _, row in df_pago.iterrows():
         uc = row["_uc_norm"]
@@ -1033,8 +1044,6 @@ def cruzar_medicao_extrato(df_extrato: "pd.DataFrame", lista_df_medicao: list, c
         "total_pago": sum(i["valor"] for i in ok) + sum(i["valor"] for i in ausentes),
         "total_ausente_valor": sum(i["valor"] for i in ausentes),
     }
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # v12 · AUDITORIA UFV / UCS — PARSER DA PLANILHA NAFISAH
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1420,26 +1429,26 @@ def page_medicao_cruzamento():
 
     with tab_cruz:
         st.markdown("#### Parâmetros Operacionais e Upload")
-        comp_alvo = st.text_input("Competência de Pagamento para Filtrar (MM/AAAA)", value="05/2026", help="Filtra pagamentos realizados de 01 a 31 do mês informado", key="mc_comp_filtro_real_v12")
+        comp_alvo = st.text_input("Competência de Pagamento para Filtrar (MM/AAAA)", value="05/2026", help="Filtra pagamentos realizados de 01 a 31 do mês informado", key="mc_comp_target_unique_v12")
         
         c1, c2 = st.columns(2)
-        f_ext = c1.file_uploader("📄 Extrato Detalhado (xlsx/csv)", type=["xlsx","xls","csv"], key="mc_ext_planilha_caixa_v12")
+        f_ext = c1.file_uploader("📄 Extrato Detalhado (xlsx/csv)", type=["xlsx","xls","csv"], key="mc_ext_uploader_v12")
         
         with c2:
             st.markdown("<p style='font-size:11.5px; font-weight:600; color:var(--text-3); text-transform:uppercase;'>Relatórios de Medição (Até 3 arquivos simultâneos)</p>", unsafe_allow_html=True)
-            f_med1 = st.file_uploader("Relatório de Medição 1 (Obrigatório)", type=["xlsx","xls","csv"], key="mc_med1_modalidade_a_v12")
-            f_med2 = st.file_uploader("Relatório de Medição 2 (Opcional)", type=["xlsx","xls","csv"], key="mc_med2_modalidade_b_v12")
-            f_med3 = st.file_uploader("Relatório de Medição 3 (Opcional)", type=["xlsx","xls","csv"], key="mc_med3_modalidade_c_v12")
+            f_med1 = st.file_uploader("Relatório de Medição 1 (Obrigatório)", type=["xlsx","xls","csv"], key="mc_med1_v12")
+            f_med2 = st.file_uploader("Relatório de Medição 2 (Opcional)", type=["xlsx","xls","csv"], key="mc_med2_v12")
+            f_med3 = st.file_uploader("Relatório de Medição 3 (Opcional)", type=["xlsx","xls","csv"], key="mc_med3_v12")
 
         if f_ext and f_med1:
-            if st.button("🔁 Cruzar agora", key="btn_executar_cruzamento_completo_v12", use_container_width=True):
+            if st.button("🔁 Cruzar agora", key="btn_executar_cruzamento_v12", use_container_width=True):
                 with st.spinner("Processando e aplicando filtros de pagamento real…"):
                     try:
                         df_e = pd.read_excel(f_ext) if not f_ext.name.endswith(".csv") else pd.read_csv(f_ext, sep=None, engine="python")
                         df_e.columns = [str(c).strip() for c in df_e.columns]
                         df_e = df_e.fillna("")
 
-                        # Coleta os relatórios disponíveis na lista para o cruzamento multi-planilha
+                        # Agrupa os relatórios ativos subidos pela Milena
                         lista_m = []
                         for f_m in [f_med1, f_med2, f_med3]:
                             if f_m is not None:
@@ -1481,7 +1490,7 @@ def page_medicao_cruzamento():
                     df_aus["valor"] = df_aus["valor"].apply(lambda x: f"R$ {x:,.2f}")
                     df_aus.columns = [c.capitalize() for c in df_aus.columns]
                     st.dataframe(df_aus, use_container_width=True, hide_index=True)
-                    st.download_button("⬇ Exportar ausentes (CSV)", df_aus.to_csv(index=False, sep=";").encode("utf-8-sig"), "faturas_ausentes.csv", "text/csv", key="btn_download_ausentes_csv_v12")
+                    st.download_button("⬇ Exportar ausentes (CSV)", df_aus.to_csv(index=False, sep=";").encode("utf-8-sig"), "faturas_ausentes.csv", "text/csv", key="btn_download_csv_excl_v12")
             else:
                 st.markdown('<div class="alert alert-g">✅ Todas as faturas pagas no mês constam nos relatórios de medição informados!</div>', unsafe_allow_html=True)
 
@@ -1491,19 +1500,14 @@ def page_medicao_cruzamento():
                     df_ok["valor"] = df_ok["valor"].apply(lambda x: f"R$ {x:,.2f}")
                     st.dataframe(df_ok, use_container_width=True, hide_index=True)
 
-            if extras:
-                with st.expander(f"ℹ️ {len(extras)} itens no relatório sem pagamento no extrato"):
-                    df_ext2 = pd.DataFrame(extras)
-                    st.dataframe(df_ext2, use_container_width=True, hide_index=True)
-
     with tab_bi:
         st.markdown("#### BI a partir do Relatório de Medição")
-        f_bi = st.file_uploader("Relatório de Medição Sunne (.xlsx)", type=["xlsx","xls"], key="mc_bi_uploader_aba_bi_v12")
-        sel_ger_bi = st.selectbox("Gerador", ["—"] + sorted({g["gerador"] for g in load_geradores()}), key="mc_ger_bi_selectbox_aba_bi_v12")
-        sel_comp_bi = st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi_text_input_aba_bi_v12")
+        f_bi = st.file_uploader("Relatório de Medição Sunne (.xlsx)", type=["xlsx","xls"], key="mc_bi_file_unique_v12")
+        sel_ger_bi = st.selectbox("Gerador", ["—"] + sorted({g["gerador"] for g in load_geradores()}), key="mc_ger_bi_unique_v12")
+        sel_comp_bi = st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi_unique_v12")
 
         if f_bi and sel_ger_bi != "—" and sel_comp_bi:
-            if st.button("📊 Analisar", key="btn_bi_mc_executar_analise_v12"):
+            if st.button("📊 Analisar", key="btn_bi_mc_click_v12"):
                 with st.spinner("Analisando…"):
                     try:
                         medicao = parse_relatorio_medicao(f_bi.read())
