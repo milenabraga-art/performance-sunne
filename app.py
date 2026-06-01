@@ -38,8 +38,8 @@ SUNNE_CSS = """
 
 :root {
   /* ── Core surfaces ── */
-  --bg:          #0A0A0F;
-  --bg-2:        #0F0F17;
+  --bg:          #FDF8F5;
+  --bg-2:        #ffffff;
   --surface:     #13131C;
   --surface-2:   #18182A;
   --surface-3:   #1E1E30;
