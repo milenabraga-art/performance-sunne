@@ -40,6 +40,7 @@ SUNNE_CSS = """
   /* ── Core surfaces ── */
   --bg:          #FDF8F5;
   --bg-2:        #ffffff;
+  --bg-3:    #32001a;
   --surface:     #13131C;
   --surface-2:   #18182A;
   --surface-3:   #1E1E30;
@@ -119,14 +120,14 @@ html, body, [class*="css"] {
    SIDEBAR
    ════════════════════════════════════════════════════════════════ */
 [data-testid="stSidebar"] {
-  background: var(--bg-2) !important;
+  background: var(--bg-3) !important;
   border-right: 1px solid var(--border) !important;
   box-shadow: none !important;
 }
 [data-testid="stSidebar"] > div { padding: 0 !important; }
 
 [data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
-  background: transparent !important;
+  background:  #32001a !important;
   border: none !important;
   padding: 0 !important;
   margin-bottom: 1px !important;
