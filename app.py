@@ -59,7 +59,7 @@ SUNNE_CSS = """
   --accent-dim:  rgba(99,102,241,.12);
 
   /* ── Text ── */
-  --text-1:      #F0F0FF;
+  --text-1:      #F59E0B;
   --text-2:      #ffffff;
   --text-3:      #606080;
   --text-4:      #FDF8F5;
