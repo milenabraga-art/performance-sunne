@@ -62,7 +62,7 @@ SUNNE_CSS = """
   --text-1:      #F0F0FF;
   --text-2:      #ffffff;
   --text-3:      #606080;
-  --text-4:      #3A3A58;
+  --text-4:      #FDF8F5;
 
   /* ── Borders ── */
   --border:      rgba(255,255,255,.06);
