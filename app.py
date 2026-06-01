@@ -954,21 +954,24 @@ def gerar_cronograma_mensal(ano: int, mes: int, analista: str) -> int:
 
 def cruzar_medicao_extrato(df_extrato: "pd.DataFrame", lista_df_medicao: list, competencia_alvo: str) -> dict:
     """
-    Racional Operacional Corrigido:
-    1. Varre o Extrato Detalhado procurando as colunas de data de pagamento e 'total pago'.
-    2. Filtra e engloba todas as faturas liquidadas no mês/ano (Ex: 05/2026 de 01/05 a 31/05).
-    3. Consolida todas as chaves (UC + Competência) encontradas em até 3 relatórios de medição.
-    4. Compara uma a uma, sinalizando o que não estiver presente para inclusão.
+    Racional Operacional Homologado:
+    1. Busca no extrato apenas linhas onde 'Status de Pagamento' seja exatamente 'Pago'.
+    2. Filtra pela coluna exata 'Data de Pagamento Boleto Sunne' dentro do mês/ano alvo.
+    3. Coleta os IDs da coluna 'Nº do Cliente' de até 3 relatórios de medição fornecidos.
+    4. Cruza por UC, acumulando os valores reais a partir da coluna 'Total Pago'.
     """
-    col_uc_e  = next((c for c in df_extrato.columns if "número da uc" in c.lower() or "numero da uc" in c.lower() or c.lower() == "uc"), None)
-    col_st_e  = next((c for c in df_extrato.columns if "status" in c.lower()), None)
-    col_dt_e  = next((c for c in df_extrato.columns if "data do pagamento" in c.lower() or "pagamento" in c.lower() or "data" in c.lower()), None)
-    col_val_e = next((c for c in df_extrato.columns if "total pago" in c.lower() or "total a pagar" in c.lower() or "valor" in c.lower()), None)
-    col_comp_e= next((c for c in df_extrato.columns if "competência" in c.lower() or "competencia" in c.lower()), None)
-    col_tit_e = next((c for c in df_extrato.columns if "titular" in c.lower() or "nome" in c.lower()), None)
+    # Mapeamento exato das colunas do Extrato Detalhado
+    col_uc_e   = next((c for c in df_extrato.columns if "número da uc" in c.lower() or "numero da uc" in c.lower() or c.lower() == "uc"), None)
+    col_st_e   = next((c for c in df_extrato.columns if "status de pagamento" in c.lower()), None)
+    col_dt_e   = next((c for c in df_extrato.columns if "data de pagamento boleto sunne" in c.lower()), None)
+    col_val_e  = next((c for c in df_extrato.columns if "total pago" in c.lower()), None)
+    col_comp_e = next((c for c in df_extrato.columns if "competência" in c.lower() or "competencia" in c.lower()), None)
+    col_tit_e  = next((c for c in df_extrato.columns if "titular" in c.lower() or "nome" in c.lower()), None)
 
     if not col_uc_e: return {"erro": "Coluna identificadora de UC não encontrada no extrato."}
-    if not col_dt_e: return {"erro": "Coluna de data de pagamento não identificada no extrato."}
+    if not col_st_e: return {"erro": "Coluna 'Status de Pagamento' não encontrada no extrato."}
+    if not col_dt_e: return {"erro": "Coluna 'Data de Pagamento Boleto Sunne' não encontrada no extrato."}
+    if not col_val_e: return {"erro": "Coluna 'Total Pago' não encontrada no extrato."}
 
     try:
         tgt_mes, tgt_ano = competencia_alvo.strip().split("/")
@@ -979,15 +982,16 @@ def cruzar_medicao_extrato(df_extrato: "pd.DataFrame", lista_df_medicao: list, c
 
     linhas_filtradas = []
     for _, row in df_extrato.iterrows():
-        # Filtro de Status 'Pago' facultativo
-        if col_st_e and str(row[col_st_e]).strip() != "":
-            if "pago" not in str(row[col_st_e]).lower(): 
-                continue
+        # Regra 1: Filtrar estritamente o que está marcado como "Pago"
+        if str(row[col_st_e]).strip().lower() != "pago":
+            continue
 
         val_dt = row[col_dt_e]
+        if pd.isna(val_dt) or str(val_dt).strip() == "":
+            continue
+            
+        # Regra 2: Validar se a data pertence à competência alvo (englobando de 01 a 31)
         match_date = False
-        
-        # Converte de forma robusta Timestamps do pandas ou strings de data
         dt_parsed = pd.to_datetime(val_dt, errors='coerce')
         if pd.notna(dt_parsed):
             if dt_parsed.month == tgt_mes and dt_parsed.year == tgt_ano:
@@ -1006,35 +1010,34 @@ def cruzar_medicao_extrato(df_extrato: "pd.DataFrame", lista_df_medicao: list, c
             linhas_filtradas.append(row)
 
     if not linhas_filtradas:
-        return {"ok": [], "ausentes": [], "extras": [], "total_pago": 0.0, "total_ausente_valor": 0.0, "aviso": f"Nenhum pagamento localizado na competência real {competencia_alvo}."}
+        return {"ok": [], "ausentes": [], "extras": [], "total_pago": 0.0, "total_ausente_valor": 0.0, "aviso": f"Nenhum registro com Status 'Pago' localizado para a data de corte {competencia_alvo}."}
 
     df_pago = pd.DataFrame(linhas_filtradas)
     df_pago["_uc_norm"] = df_pago[col_uc_e].apply(normalize_uc)
     df_pago["_comp"] = df_pago[col_comp_e].astype(str).str.strip() if col_comp_e else "—"
 
-    # Consolida as chaves de busca unindo o mapeamento de até 3 relatórios de medição subidos
-    medicao_set = set()
+    # Mapeia e consolida a lista de clientes ativos de até 3 relatórios usando a coluna "Nº do Cliente"
+    clientes_na_medicao = set()
     for df_medicao in lista_df_medicao:
         if df_medicao is None or df_medicao.empty: continue
-        col_uc_m   = next((c for c in df_medicao.columns if "uc" in c.lower()), None)
-        col_comp_m = next((c for c in df_medicao.columns if "compet" in c.lower()), None)
+        col_uc_m = next((c for c in df_medicao.columns if "nº do cliente" in c.lower() or "numero do cliente" in c.lower()), None)
         
         if col_uc_m:
             for _, row_m in df_medicao.iterrows():
                 uc_m_norm = normalize_uc(str(row_m[col_uc_m]))
-                comp_m = str(row_m[col_comp_m]).strip() if col_comp_m else "—"
-                medicao_set.add((uc_m_norm, comp_m))
-                medicao_set.add((uc_m_norm, "—"))
+                if uc_m_norm:
+                    clientes_na_medicao.add(uc_m_norm)
 
     ok, ausentes = [], []
     for _, row in df_pago.iterrows():
         uc = row["_uc_norm"]
         comp = row["_comp"]
-        val = clean_val(row[col_val_e]) if col_val_e else 0.0
+        val = clean_val(row[col_val_e]) # Captura o valor real da coluna 'Total Pago'
         tit = str(row[col_tit_e]) if col_tit_e else "—"
         item = {"uc": row[col_uc_e], "competencia": comp, "valor": val, "titular": tit, "data_pagamento": row[col_dt_e]}
         
-        if (uc, comp) in medicao_set or (uc, "—") in medicao_set:
+        # Como o relatório já é o da competência, basta checar se o ID consta na lista consolidada de medições
+        if uc in clientes_na_medicao:
             ok.append(item)
         else:
             ausentes.append(item)
@@ -1442,19 +1445,31 @@ def page_medicao_cruzamento():
 
         if f_ext and f_med1:
             if st.button("🔁 Cruzar agora", key="btn_executar_cruzamento_v12", use_container_width=True):
-                with st.spinner("Processando e aplicando filtros de pagamento real…"):
+                with st.spinner("Limpando cabeçalhos e executando cruzamento analítico..."):
                     try:
-                        df_e = pd.read_excel(f_ext) if not f_ext.name.endswith(".csv") else pd.read_csv(f_ext, sep=None, engine="python")
-                        df_e.columns = [str(c).strip() for c in df_e.columns]
-                        df_e = df_e.fillna("")
+                        # Varredura inteligente para ignorar linhas de metadados no topo do Extrato
+                        df_e_raw = pd.read_excel(f_ext, header=None) if not f_ext.name.endswith(".csv") else pd.read_csv(f_ext, header=None, sep=None, engine="python")
+                        df_e = df_e_raw.fillna("")
+                        for i, row in df_e_raw.iterrows():
+                            row_l = [str(c).strip().lower() for c in row]
+                            if any("uc" in s or "unidade" in s or "pagamento" in s or "status" in s for s in row_l):
+                                df_e.columns = [str(c).strip() for c in row]
+                                df_e = df_e.iloc[i+1:].reset_index(drop=True)
+                                break
 
-                        # Agrupa os relatórios ativos subidos pela Milena
+                        # Varredura inteligente de até 3 relatórios de medição simultâneos
                         lista_m = []
                         for f_m in [f_med1, f_med2, f_med3]:
                             if f_m is not None:
-                                df_m = pd.read_excel(f_m) if not f_m.name.endswith(".csv") else pd.read_csv(f_m, sep=None, engine="python")
-                                df_m.columns = [str(c).strip() for c in df_m.columns]
-                                lista_m.append(df_m.fillna(""))
+                                df_m_raw = pd.read_excel(f_m, header=None) if not f_m.name.endswith(".csv") else pd.read_csv(f_m, header=None, sep=None, engine="python")
+                                df_m = df_m_raw.fillna("")
+                                for i, row in df_m_raw.iterrows():
+                                    row_l = [str(c).strip().lower() for c in row]
+                                    if any("cliente" in s or "nº do" in s or "valor" in s or "compet" in s for s in row_l):
+                                        df_m.columns = [str(c).strip() for c in row]
+                                        df_m = df_m.iloc[i+1:].reset_index(drop=True)
+                                        break
+                                lista_m.append(df_m)
 
                         resultado = cruzar_medicao_extrato(df_e, lista_m, comp_alvo)
                         st.session_state["medicao_cruzamento"] = resultado
@@ -1499,6 +1514,11 @@ def page_medicao_cruzamento():
                     df_ok = pd.DataFrame(ok_list)
                     df_ok["valor"] = df_ok["valor"].apply(lambda x: f"R$ {x:,.2f}")
                     st.dataframe(df_ok, use_container_width=True, hide_index=True)
+
+            if extras:
+                with st.expander(f"ℹ️ {len(extras)} itens no relatório sem pagamento no extrato"):
+                    df_ext2 = pd.DataFrame(extras)
+                    st.dataframe(df_ext2, use_container_width=True, hide_index=True)
 
     with tab_bi:
         st.markdown("#### BI a partir do Relatório de Medição")
