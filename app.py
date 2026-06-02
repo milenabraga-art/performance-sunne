@@ -954,96 +954,113 @@ def gerar_cronograma_mensal(ano: int, mes: int, analista: str) -> int:
 
 def cruzar_medicao_extrato(df_extrato: "pd.DataFrame", lista_df_medicao: list, competencia_alvo: str) -> dict:
     """
-    Racional Operacional Homologado:
-    1. Busca no extrato apenas linhas onde 'Status de Pagamento' seja exatamente 'Pago'.
-    2. Filtra pela data real contida em 'Data de Pagamento Boleto Sunne' usando o padrão brasileiro.
-    3. Coleta os códigos contidos na coluna 'Nº do Cliente' de até 3 relatórios de medição.
-    4. Cruza por UC, consolidando os valores reais a partir da coluna 'Total Pago'.
+    Racional Operacional Homologado (Mão Dupla com Regra de Comissão e Renegociações):
+    1. Filtra faturas com Status de Pagamento == 'Pago' no Extrato.
+    2. Aplica a Regra da Fatura Unificada: se unificada, Caixa = Total Pago - Concessionária.
+    3. Cruza com as linhas de medição dando "baixa" pelo Nº do Cliente.
+    4. Isola as renegociações/sobras da medição no card de Divergências.
     """
-    # Colunas exatas do Extrato Detalhado
-    col_uc_e  = "Número da UC"
-    col_st_e  = "Status de Pagamento"
-    col_dt_e  = "Data de Pagamento Boleto Sunne"
-    col_val_e = "Total Pago"
+    col_uc_e   = "Número da UC"
+    col_st_e   = "Status de Pagamento"
+    col_dt_e   = "Data de Pagamento Boleto Sunne"
+    col_val_e  = "Total Pago"
+    col_unif_e = "Unificada"
+    col_conces_e = "Total a Pagar Boleto Concessionária"
+    col_comp_e = next((c for c in df_extrato.columns if "competência" in c.lower() or "competencia" in c.lower()), None)
+    col_tit_e  = next((c for c in df_extrato.columns if "titular" in c.lower() or "nome" in c.lower()), None)
 
-    if col_uc_e not in df_extrato.columns: return {"erro": f"Coluna '{col_uc_e}' não encontrada no extrato."}
-    if col_st_e not in df_extrato.columns: return {"erro": f"Coluna '{col_st_e}' não encontrada no extrato."}
-    if col_dt_e not in df_extrato.columns: return {"erro": f"Coluna '{col_dt_e}' não encontrada no extrato."}
-    if col_val_e not in df_extrato.columns: return {"erro": f"Coluna '{col_val_e}' não encontrada no extrato."}
+    if col_uc_e not in df_extrato.columns or col_st_e not in df_extrato.columns:
+        return {"erro": "Colunas essenciais do Extrato Detalhado não encontradas."}
 
     try:
         tgt_mes, tgt_ano = competencia_alvo.strip().split("/")
-        tgt_mes = int(tgt_mes)
-        tgt_ano = int(tgt_ano)
+        tgt_mes, tgt_ano = int(tgt_mes), int(tgt_ano)
     except:
-        return {"erro": "Formato de competência inválido. Preencha como MM/AAAA (Ex: 05/2026)."}
+        return {"erro": "Formato de competência inválido. Use MM/AAAA (Ex: 05/2026)."}
 
-    linhas_filtradas = []
+    # 1. Filtra faturas pagas no mês alvo aplicando a regra da Fatura Unificada
+    faturas_pagas_extrato = []
     for _, row in df_extrato.iterrows():
-        # Regra 1: Filtrar apenas faturas com status "Pago"
         if str(row[col_st_e]).strip().lower() != "pago":
             continue
-
-        val_dt = row[col_dt_e]
-        if pd.isna(val_dt) or str(val_dt).strip() == "":
-            continue
+        dt_parsed = pd.to_datetime(row[col_dt_e], dayfirst=True, errors='coerce')
+        if pd.notna(dt_parsed) and dt_parsed.month == tgt_mes and dt_parsed.year == tgt_ano:
+            total_pago = clean_val(row[col_val_e])
+            concessionaria = clean_val(row[col_conces_e]) if col_conces_e in df_extrato.columns else 0.0
+            unif_val = row[col_unif_e] if col_unif_e in df_extrato.columns else 0
             
-        # Regra 2: Validar competência garantindo leitura correta de datas brasileiras
-        match_date = False
-        dt_parsed = pd.to_datetime(val_dt, dayfirst=True, errors='coerce')
-        if pd.notna(dt_parsed):
-            if dt_parsed.month == tgt_mes and dt_parsed.year == tgt_ano:
-                match_date = True
-        else:
-            dt_str = str(val_dt).strip()
-            import re
-            digits = re.findall(r'\d+', dt_str)
-            if len(digits) >= 3:
-                if len(digits[0]) == 4: # Formato YYYY-MM-DD
-                    if int(digits[1]) == tgt_mes and int(digits[0]) == tgt_ano: match_date = True
-                elif len(digits[2]) >= 4: # Formato DD/MM/YYYY
-                    if int(digits[1]) == tgt_mes and int(digits[2][:4]) == tgt_ano: match_date = True
+            # Aplica a sua regra manual da fatura unificada
+            if unif_val == 1 or str(unif_val).lower() in ['sim', 'true', '1', 'yes']:
+                valor_caixa_bruto = total_pago - concessionaria
+            else:
+                valor_caixa_bruto = total_pago
+                
+            faturas_pagas_extrato.append({
+                "row": row, "uc_norm": normalize_uc(str(row[col_uc_e])),
+                "valor_caixa": valor_caixa_bruto, "titular": str(row[col_tit_e]) if col_tit_e else "—",
+                "competencia": str(row[col_comp_e]).strip() if col_comp_e else "—", "data_pagamento": row[col_dt_e]
+            })
 
-        if match_date:
-            linhas_filtradas.append(row)
-
-    if not linhas_filtradas:
-        return {"ok": [], "ausentes": [], "extras": [], "total_pago": 0.0, "total_ausente_valor": 0.0, "aviso": f"Nenhum pagamento real localizado no extrato para a competência {competencia_alvo}."}
-
-    df_pago = pd.DataFrame(linhas_filtradas)
-    df_pago["_uc_norm"] = df_pago[col_uc_e].apply(normalize_uc)
-
-    # Consolida os IDs dos clientes de todos os relatórios de medição ativos enviados pela coluna "Nº do Cliente"
-    clientes_na_medicao = set()
+    # 2. Consolida as linhas de até 3 relatórios de medição buscando o faturamento líquido s/ comissão
+    linhas_medicao_todas = []
     for df_medicao in lista_df_medicao:
         if df_medicao is None or df_medicao.empty: continue
         col_uc_m = next((c for c in df_medicao.columns if "nº do cliente" in c.lower() or "numero do cliente" in c.lower() or "cliente" in c.lower()), None)
+        col_fat_m = next((c for c in df_medicao.columns if "faturamento bruto deduzido" in c.lower() or "fatura sunne - valor" in c.lower()), None)
+        col_comis_m = next((c for c in df_medicao.columns if "comissão" in c.lower() or "comissao" in c.lower()), None)
+        col_nome_m = next((c for c in df_medicao.columns if "nome do cliente" in c.lower() or "titular" in c.lower()), None)
         
-        if col_uc_m:
+        if col_uc_m and col_fat_m:
             for _, row_m in df_medicao.iterrows():
-                uc_m_norm = normalize_uc(str(row_m[col_uc_m]))
-                if uc_m_norm:
-                    clientes_na_medicao.add(uc_m_norm)
+                linhas_medicao_todas.append({
+                    "uc_original": str(row_m[col_uc_m]), "uc_norm": normalize_uc(str(row_m[col_uc_m])),
+                    "fat_liquido_gerador": clean_val(row_m[col_fat_m]),
+                    "comissao": clean_val(row_m[col_comis_m]) if col_comis_m else 0.0, 
+                    "nome_cliente": str(row_m[col_nome_m]) if col_nome_m else "—", "matched": False
+                })
 
+    # 3. Cruzamento e abatimento de mão dupla
     ok, ausentes = [], []
-    for _, row in df_pago.iterrows():
-        uc = row["_uc_norm"]
-        val = clean_val(row[col_val_e]) 
-        tit = str(row["Titular da Conta"]) if "Titular da Conta" in df_extrato.columns else "—"
-        comp_fatura = str(row["Competência"]) if "Competência" in df_extrato.columns else "—"
+    total_liquido_gerador_real = 0.0
+    
+    for fat_e in faturas_pagas_extrato:
+        match_encontrado = False
         
-        item = {"uc": row[col_uc_e], "competencia": comp_fatura, "valor": val, "titular": tit, "data_pagamento": row[col_dt_e]}
+        for m in linhas_medicao_todas:
+            if m["uc_norm"] == fat_e["uc_norm"] and not m["matched"]:
+                m["matched"] = True
+                match_encontrado = True
+                total_liquido_gerador_real += m["fat_liquido_gerador"] # Acumula o líquido s/ comissão
+                break
+                
+        item = {"uc": fat_e["row"][col_uc_e], "competencia": fat_e["competencia"], "valor": fat_e["valor_caixa"], "titular": fat_e["titular"], "data_pagamento": fat_e["data_pagamento"]}
         
-        # Como o relatório já é da competência correta, valida apenas a presença da UC nas tabelas B
-        if uc in clientes_na_medicao:
+        if match_encontrado:
             ok.append(item)
         else:
             ausentes.append(item)
 
+    # 4. Isola renegociações que estão na medição mas ainda não compensaram no extrato do mês
+    extras = []
+    for m in linhas_medicao_todas:
+        if not m["matched"]:
+            extras.append({
+                "uc": m["uc_original"], 
+                "competencia": "Renegociação/Sobra",
+                "valor_solicitado_na_medicao": m["fat_liquido_gerador"],
+                "comissao_parceiro": m["comissao"], 
+                "titular": m["nome_cliente"]
+            })
+
+    total_solicitado_medicao_sobra = sum(i["valor_solicitado_na_medicao"] for i in extras)
+
     return {
-        "ok": ok, "ausentes": ausentes, "extras": [],
-        "total_pago": sum(i["valor"] for i in ok) + sum(i["valor"] for i in ausentes),
+        "ok": ok, "ausentes": ausentes, "extras": extras,
+        "total_caixa_bruto": sum(i["valor"] for i in ok) + sum(i["valor"] for i in ausentes),
+        "total_liquido_gerador_real": total_liquido_gerador_real,
+        "total_solicitado_medicao_sobra": total_solicitado_medicao_sobra,
         "total_ausente_valor": sum(i["valor"] for i in ausentes),
+    }
     }
 # ══════════════════════════════════════════════════════════════════════════════
 # v12 · AUDITORIA UFV / UCS — PARSER DA PLANILHA NAFISAH
@@ -1430,22 +1447,21 @@ def page_medicao_cruzamento():
 
     with tab_cruz:
         st.markdown("#### Parâmetros Operacionais e Upload")
-        comp_alvo = st.text_input("Competência de Pagamento para Filtrar (MM/AAAA)", value="05/2026", help="Filtra pagamentos realizados de 01 a 31 do mês informado", key="mc_comp_target_unique_v12")
+        comp_alvo = st.text_input("Competência de Pagamento para Filtrar (MM/AAAA)", value="05/2026", help="Filtra pagamentos realizados de 01 a 31 do mês informado", key="mc_comp_target_final_v12_prod")
         
         c1, c2 = st.columns(2)
-        f_ext = c1.file_uploader("📄 Extrato Detalhado (xlsx/csv)", type=["xlsx","xls","csv"], key="mc_ext_uploader_v12")
+        f_ext = c1.file_uploader("📄 Extrato Detalhado (xlsx/csv)", type=["xlsx","xls","csv"], key="mc_ext_uploader_final_v12_prod")
         
         with c2:
             st.markdown("<p style='font-size:11.5px; font-weight:600; color:var(--text-3); text-transform:uppercase;'>Relatórios de Medição (Até 3 arquivos simultâneos)</p>", unsafe_allow_html=True)
-            f_med1 = st.file_uploader("Relatório de Medição 1 (Obrigatório)", type=["xlsx","xls","csv"], key="mc_med1_v12")
-            f_med2 = st.file_uploader("Relatório de Medição 2 (Opcional)", type=["xlsx","xls","csv"], key="mc_med2_v12")
-            f_med3 = st.file_uploader("Relatório de Medição 3 (Opcional)", type=["xlsx","xls","csv"], key="mc_med3_v12")
+            f_med1 = st.file_uploader("Relatório de Medição 1 (Obrigatório)", type=["xlsx","xls","csv"], key="mc_med1_final_v12_prod")
+            f_med2 = st.file_uploader("Relatório de Medição 2 (Opcional)", type=["xlsx","xls","csv"], key="mc_med2_final_v12_prod")
+            f_med3 = st.file_uploader("Relatório de Medição 3 (Opcional)", type=["xlsx","xls","csv"], key="mc_med3_final_v12_prod")
 
         if f_ext and f_med1:
-            if st.button("🔁 Cruzar agora", key="btn_executar_cruzamento_v12", use_container_width=True):
-                with st.spinner("Limpando cabeçalhos e executando cruzamento analítico..."):
+            if st.button("🔁 Cruzar agora", key="btn_executar_cruzamento_final_v12_prod", use_container_width=True):
+                with st.spinner("Limpando cabeçalhos e processando conciliação financeira de comissões…"):
                     try:
-                        # Varredura inteligente de cabeçalhos do Extrato Detalhado
                         df_e_raw = pd.read_excel(f_ext, header=None) if not f_ext.name.endswith(".csv") else pd.read_csv(f_ext, header=None, sep=None, engine="python")
                         df_e = df_e_raw.fillna("")
                         for i, row in df_e_raw.iterrows():
@@ -1456,7 +1472,6 @@ def page_medicao_cruzamento():
                                 df_e = df_e.iloc[i+1:].reset_index(drop=True)
                                 break
 
-                        # Varredura inteligente de até 3 relatórios de medição simultâneos
                         lista_m = []
                         for f_m in [f_med1, f_med2, f_med3]:
                             if f_m is not None:
@@ -1464,7 +1479,7 @@ def page_medicao_cruzamento():
                                 df_m = df_m_raw.fillna("")
                                 for i, row in df_m_raw.iterrows():
                                     row_l = [str(c).strip().lower() for c in row]
-                                    hits = sum(1 for s in row_l if "cliente" in s or "nº" in s or "valor" in s or "pago" in s or "uc" in s)
+                                    hits = sum(1 for s in row_l if "cliente" in s or "nº" in s or "valor" in s or "pago" in s or "bruto" in s or "comiss" in s)
                                     if hits >= 2:
                                         df_m.columns = [str(c).strip() for c in row]
                                         df_m = df_m.iloc[i+1:].reset_index(drop=True)
@@ -1490,24 +1505,35 @@ def page_medicao_cruzamento():
             ok_list  = res.get("ok", [])
             extras   = res.get("extras", [])
 
+            # Painel Financeiro Premium Unificado
             kc1, kc2, kc3, kc4 = st.columns(4)
-            kc1.markdown(f'<div class="kpi-box"><div class="kpi-value" style="color:#0B7A5F">{len(ok_list)}</div><div class="kpi-label">Faturas OK</div></div>', unsafe_allow_html=True)
-            kc2.markdown(f'<div class="kpi-box"><div class="kpi-value" style="color:#C41230">{len(ausentes)}</div><div class="kpi-label">Ausentes no Relatório</div></div>', unsafe_allow_html=True)
-            kc3.markdown(f'<div class="kpi-box"><div class="kpi-value" style="color:#A84010">{len(extras)}</div><div class="kpi-label">No Rel. sem pagamento</div></div>', unsafe_allow_html=True)
-            kc4.markdown(f'<div class="kpi-box"><div class="kpi-value">R$ {res.get("total_ausente_valor",0):,.2f}</div><div class="kpi-label">Valor ausente</div></div>', unsafe_allow_html=True)
+            kc1.markdown(f'<div class="kpi-box"><div class="kpi-value" style="color:#0B7A5F">R$ {res.get("total_caixa_bruto",0):,.2f}</div><div class="kpi-label">Caixa Bruto (Extrato Unificado)</div></div>', unsafe_allow_html=True)
+            kc2.markdown(f'<div class="kpi-box"><div class="kpi-value" style="color:#1D4ED8">R$ {res.get("total_liquido_gerador_real",0):,.2f}</div><div class="kpi-label">Líquido Real s/ Comissão</div></div>', unsafe_allow_html=True)
+            kc3.markdown(f'<div class="kpi-box"><div class="kpi-value" style="color:#A84010">R$ {res.get("total_solicitado_medicao_sobra",0):,.2f}</div><div class="kpi-label">Sobra/Renegociações na Medição</div></div>', unsafe_allow_html=True)
+            kc4.markdown(f'<div class="kpi-box"><div class="kpi-value" style="color:#C41230">R$ {res.get("total_ausente_valor",0):,.2f}</div><div class="kpi-label">Caixa Faltante na Medição</div></div>', unsafe_allow_html=True)
 
             st.write("")
 
+            if extras:
+                st.markdown(f'<div class="alert alert-y">ℹ️ <b>{len(extras)} item(ns)</b> constam no relatório de medição mas correspondem a renegociações/layouts duplicados que não impactaram o caixa deste mês. Diferença mapeada com sucesso!</div>', unsafe_allow_html=True)
+                with st.expander("Ver itens de Renegociação / Sobras da Medição"):
+                    df_ext2 = pd.DataFrame(extras)
+                    df_ext2["valor_solicitado_na_medicao"] = df_ext2["valor_solicitado_na_medicao"].apply(lambda x: f"R$ {x:,.2f}")
+                    df_ext2["comissao_parceiro"] = df_ext2["comissao_parceiro"].apply(lambda x: f"R$ {x:,.2f}")
+                    df_ext2.columns = [c.capitalize().replace("_", " ") for c in df_ext2.columns]
+                    st.dataframe(df_ext2, use_container_width=True, hide_index=True)
+
             if ausentes:
-                st.markdown(f'<div class="alert alert-r">⚠️ <b>{len(ausentes)} fatura(s)</b> pagas no extrato de caixa filtrado NÃO constam nos relatórios de medição. É necessário incluí-las.</div>', unsafe_allow_html=True)
-                with st.expander(f"Ver {len(ausentes)} faturas ausentes — R$ {res['total_ausente_valor']:,.2f}"):
+                st.markdown(f'<div class="alert alert-r">⚠️ <b>{len(ausentes)} fatura(s)</b> pagas no extrato de caixa filtrado NÃO constam nos relatórios de medição.</div>', unsafe_allow_html=True)
+                with st.expander(f"Ver faturas ausentes — R$ {res['total_ausente_valor']:,.2f}"):
                     df_aus = pd.DataFrame(ausentes)
                     df_aus["valor"] = df_aus["valor"].apply(lambda x: f"R$ {x:,.2f}")
                     df_aus.columns = [c.capitalize() for c in df_aus.columns]
                     st.dataframe(df_aus, use_container_width=True, hide_index=True)
-                    st.download_button("⬇ Exportar ausentes (CSV)", df_aus.to_csv(index=False, sep=";").encode("utf-8-sig"), "faturas_ausentes.csv", "text/csv", key="btn_download_csv_excl_v12")
-            else:
-                st.markdown('<div class="alert alert-g">✅ Todas as faturas pagas no mês constam nos relatórios de medição informados!</div>', unsafe_allow_html=True)
+                    st.download_button("⬇ Exportar ausentes (CSV)", df_aus.to_csv(index=False, sep=";").encode("utf-8-sig"), "faturas_ausentes.csv", "text/csv", key="btn_download_csv_excl_final_prod")
+            
+            if not ausentes and not extras:
+                st.markdown('<div class="alert alert-g">✅ Todas as faturas pagas e comissões fecham perfeitamente com a medição!</div>', unsafe_allow_html=True)
 
             if ok_list:
                 with st.expander(f"✅ {len(ok_list)} faturas OK"):
@@ -1517,12 +1543,12 @@ def page_medicao_cruzamento():
 
     with tab_bi:
         st.markdown("#### BI a partir do Relatório de Medição")
-        f_bi = st.file_uploader("Relatório de Medição Sunne (.xlsx)", type=["xlsx","xls"], key="mc_bi_file_unique_v12")
-        sel_ger_bi = st.selectbox("Gerador", ["—"] + sorted({g["gerador"] for g in load_geradores()}), key="mc_ger_bi_unique_v12")
-        sel_comp_bi = st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi_unique_v12")
+        f_bi = st.file_uploader("Relatório de Medição Sunne (.xlsx)", type=["xlsx","xls"], key="mc_bi_file_unique_v12_prod_final")
+        sel_ger_bi = st.selectbox("Gerador", ["—"] + sorted({g["gerador"] for g in load_geradores()}), key="mc_ger_bi_unique_v12_prod_final")
+        sel_comp_bi = st.text_input("Competência (MM/AAAA)", placeholder="04/2026", key="mc_comp_bi_unique_v12_prod_final")
 
         if f_bi and sel_ger_bi != "—" and sel_comp_bi:
-            if st.button("📊 Analisar", key="btn_bi_mc_click_v12"):
+            if st.button("📊 Analisar", key="btn_bi_mc_click_v12_prod_final"):
                 with st.spinner("Analisando…"):
                     try:
                         medicao = parse_relatorio_medicao(f_bi.read())
