@@ -1061,7 +1061,7 @@ def cruzar_medicao_extrato(df_extrato: "pd.DataFrame", lista_df_medicao: list, c
         "total_solicitado_medicao_sobra": total_solicitado_medicao_sobra,
         "total_ausente_valor": sum(i["valor"] for i in ausentes),
     }
-    }
+    
 # ══════════════════════════════════════════════════════════════════════════════
 # v12 · AUDITORIA UFV / UCS — PARSER DA PLANILHA NAFISAH
 # ══════════════════════════════════════════════════════════════════════════════
