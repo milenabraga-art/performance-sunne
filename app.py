@@ -29,93 +29,300 @@ st.set_page_config(
 # ── CSS PREMIUM SUNNE ─────────────────────────────────────────────────────────
 SUNNE_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700;800&display=swap');
 
 /* ════════════════════════════════════════════════════════════════
-   SUNNE HUB v12 — Design System
-   Aesthetic: Pro Dark · Linear/Vercel-grade · Precision data UI
+   SUNNE OPERATIONAL HUB — Design System Integrado (React Premium Style)
+   Aesthetic: Minimalist Creme & Deep Rubi · Paridade Visual Total
    ════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Core surfaces ── */
-  --bg:          #FDF8F5;
-  --bg-2:        #ffffff;
-  --bg-3:    #32001a;
-  --surface:     #13131C;
-  --surface-2:   #18182A;
-  --surface-3:   #1E1E30;
-  --overlay:     rgba(255,255,255,.03);
-
-  /* ── Brand ── */
-  --orange:      #F36E21;
-  --orange-d:    #D45E14;
-  --orange-glow: rgba(243,110,33,.18);
-  --orange-dim:  rgba(243,110,33,.10);
-  --orange-xs:   rgba(243,110,33,.06);
-
-  /* ── Accent ── */
-  --accent:      #6366F1;
-  --accent-d:    #4F52D9;
-  --accent-dim:  rgba(99,102,241,.12);
-
-  /* ── Text ── */
-  --text-1:      #F59E0B;
-  --text-2:      #ffffff;
-  --text-3:      #606080;
-  --text-4:      #FDF8F5;
-
-  /* ── Borders ── */
-  --border:      rgba(255,255,255,.06);
-  --border-m:    rgba(255,255,255,.10);
-  --border-h:    rgba(255,255,255,.16);
-
-  /* ── Status ── */
-  --red:         #F43F5E;
-  --red-dim:     rgba(244,63,94,.12);
-  --amber:       #F59E0B;
-  --amber-dim:   rgba(245,158,11,.12);
-  --green:       #10B981;
-  --green-dim:   rgba(16,185,129,.12);
-  --blue:        #3B82F6;
-  --blue-dim:    rgba(59,130,246,.12);
-
-  /* ── Shadows ── */
-  --shadow-s:    0 1px 3px rgba(0,0,0,.4);
-  --shadow:      0 4px 16px rgba(0,0,0,.5);
-  --shadow-m:    0 8px 32px rgba(0,0,0,.6);
-  --shadow-l:    0 20px 60px rgba(0,0,0,.7);
-  --glow-o:      0 0 24px rgba(243,110,33,.22);
-  --glow-a:      0 0 24px rgba(99,102,241,.18);
-
-  /* ── Radii ── */
-  --r-xs: 4px;
-  --r-s:  6px;
-  --r:    10px;
-  --r-l:  14px;
-  --r-xl: 20px;
+  /* ── Design Tokens Core ── */
+  --bg-creme:       #FDF8F5;
+  --bg-branco:      #ffffff;
+  --bg-rubi:        #32001a;
+  --brand-laranja:  #ff6a1a;
+  --brand-laranjaHov:#ff7a2e;
+  --cinza-fundo:    #f4f4f6;
+  --cinza-borda:    #e8e8ec;
+  --cinza-texto:    #6b7280;
+  --texto-dark:     #1a1a2e;
+  
+  /* ── Status Colors ── */
+  --verde:          #15803d;
+  --verde-light:    #f0fdf4;
+  --vermelho:       #dc2626;
+  --vermelho-light: #fff5f5;
+  --amarelo:        #b45309;
+  --amarelo-light:  #fffbeb;
+  --azul:           #1d4ed8;
+  --azul-light:     #eff6ff;
 }
 
-/* ── Reset & base ───────────────────────────────────────────────── */
-html, body, [class*="css"] {
-  font-family: 'Geist', 'SF Pro Display', -apple-system, sans-serif !important;
-  color: var(--text-1) !important;
-  -webkit-font-smoothing: antialiased !important;
-  text-rendering: optimizeLegibility !important;
+/* ── Reset Global & Tipografia ───────────────────────────────────── */
+html, body, [class*="css"], [data-testid="stAppViewContainer"] * {
+  font-family: 'DM Sans', 'Nunito', system-ui, sans-serif !important;
+  color: var(--texto-dark) !important;
 }
-[data-testid="stAppViewContainer"] { background: var(--bg) !important; }
-[data-testid="stMain"]             { background: var(--bg) !important; }
+
+[data-testid="stAppViewContainer"] { background: var(--bg-creme) !important; }
+[data-testid="stMain"]             { background: var(--bg-creme) !important; }
 #MainMenu, footer, header          { visibility: hidden; }
+
 .block-container {
   padding: 2rem 2.5rem 4rem !important;
   max-width: 1440px !important;
 }
 
-/* ── Scrollbar ──────────────────────────────────────────────────── */
-::-webkit-scrollbar              { width: 4px; height: 4px; }
-::-webkit-scrollbar-track        { background: #32001a; }
-::-webkit-scrollbar-thumb        { background: var(--border-m); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover  { background: var(--border-h); }
+/* Scrollbars Premium */
+::-webkit-scrollbar              { width: 6px; height: 6px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: #ddd; border-radius: 3px; }
 
+/* ── Elementos Estruturais (Cards e KPIs) ────────────────────────── */
+div[data-testid="stVerticalBlockBorderContainer"], .kpi-box {
+  background: var(--bg-branco) !important;
+  border: 1px solid var(--cinza-borda) !important;
+  border-radius: 12px !important;
+  padding: 20px 24px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+  margin-bottom: 16px !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-value, [data-testid="stMetricValue"] {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  color: var(--brand-laranja) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.5px !important;
+}
+
+.kpi-label, [data-testid="stMetricLabel"] {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--cinza-texto) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.6px !important;
+  margin-bottom: 8px !important;
+}
+
+/* ── Sidebar (Design Paridade Rubi) ──────────────────────────────── */
+[data-testid="stSidebar"] {
+  background: var(--bg-rubi) !important;
+  border-right: 1px solid rgba(255,255,255,0.07) !important;
+}
+
+[data-testid="stSidebar"] * {
+  color: rgba(255,255,255,0.58) !important;
+}
+
+/* Cabeçalho da Sidebar */
+.sb-brand {
+  padding: 22px 18px 18px !important;
+  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+}
+.sb-brand-name {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: var(--brand-laranja) !important;
+  letter-spacing: -0.5px !important;
+}
+.sb-brand-sub {
+  font-size: 10px !important;
+  color: rgba(255,255,255,0.35) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1.2px !important;
+  margin-top: 2px !important;
+}
+
+/* User Card na Sidebar */
+.sb-user {
+  margin: 12px 18px !important;
+  padding: 0px !important;
+  background: transparent !important;
+  border: none !important;
+}
+.sb-user-name {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--bg-branco) !important;
+}
+.sb-user-role {
+  font-size: 10px !important;
+  color: rgba(255,255,255,0.4) !important;
+  text-transform: uppercase !important;
+}
+
+.sec-label {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1px !important;
+  text-transform: uppercase !important;
+  color: rgba(255,255,255,0.3) !important;
+  margin-top: 16px !important;
+  padding-left: 14px !important;
+}
+
+/* Botões de Navegação da Sidebar */
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] {
+  background: transparent !important;
+  border: none !important;
+  padding: 9px 11px !important;
+  margin-bottom: 2px !important;
+  width: 100% !important;
+  text-align: left !important;
+  border-radius: 7px !important;
+  transition: all 0.13s ease !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"]:hover {
+  background: rgba(255,255,255,0.05) !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] p {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: rgba(255,255,255,0.7) !important;
+}
+
+/* ── Botões Premium (Buttons) ───────────────────────────────────── */
+.stButton > button {
+  background: var(--brand-laranja) !important;
+  color: var(--bg-branco) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: 8px 18px !important;
+  letter-spacing: 0.2px !important;
+  box-shadow: none !important;
+  transition: all 0.15s ease !important;
+}
+
+.stButton > button:hover {
+  background: var(--brand-laranjaHov) !important;
+  transform: translateY(-0.5px) !important;
+}
+
+.stDownloadButton > button {
+  background: var(--bg-branco) !important;
+  color: var(--texto-dark) !important;
+  border: 1.5px solid var(--cinza-borda) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 8px 18px !important;
+  transition: all 0.15s ease !important;
+}
+
+.stDownloadButton > button:hover {
+  background: var(--cinza-fundo) !important;
+  border-color: var(--cinza-texto) !important;
+}
+
+/* ── Inputs e Formulários ────────────────────────────────────────── */
+[data-testid="stTextInput"] input,
+[data-testid="stSelectbox"] > div,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea {
+  background: var(--bg-branco) !important;
+  border: 1.5px solid var(--cinza-borda) !important;
+  border-radius: 8px !important;
+  color: var(--texto-dark) !important;
+  font-size: 13px !important;
+  padding: 9px 13px !important;
+  transition: all 0.15s ease !important;
+}
+
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+  border-color: var(--brand-laranja) !important;
+  box-shadow: rgba(255,106,26,0.1) 0 0 8px !important;
+}
+
+[data-testid="stTextInput"] label,
+[data-testid="stSelectbox"] label,
+[data-testid="stNumberInput"] label,
+[data-testid="stTextArea"] label,
+[data-testid="stFileUploader"] label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--texto-dark) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: 5px !important;
+}
+
+/* ── Abas (Tabs Minimalistas) ────────────────────────────────────── */
+[data-testid="stTabs"] [role="tablist"] {
+  background: transparent !important;
+  border-bottom: 1px solid var(--cinza-borda) !important;
+  padding: 0px !important;
+  gap: 4px !important;
+  margin-bottom: 20px !important;
+}
+
+[data-testid="stTabs"] button[role="tab"] {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--cinza-texto) !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  padding: 8px 16px !important;
+  margin-bottom: -1px !important;
+  transition: all 0.15s ease !important;
+}
+
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+  color: var(--brand-laranja) !important;
+  border-bottom: 2px solid var(--brand-laranja) !important;
+}
+
+/* ── Tabelas e DataFrames ────────────────────────────────────────── */
+[data-testid="stDataFrame"] {
+  border: 1px solid var(--cinza-borda) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+[data-testid="stDataFrame"] thead tr th {
+  background: var(--bg-rubi) !important;
+  color: var(--bg-branco) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+}
+
+[data-testid="stDataFrame"] tbody tr td {
+  font-size: 12px !important;
+}
+
+/* ── Badges de Status (Alertas Dinâmicos) ────────────────────────── */
+.alert {
+  padding: 10px 14px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  margin-bottom: 10px !important;
+  border: 1px solid transparent !important;
+}
+.alert-g { background: var(--verde-light) !important; color: var(--verde) !important; }
+.alert-r { background: var(--vermelho-light) !important; color: var(--vermelho) !important; border-color: #fecaca !important; }
+.alert-y { background: var(--amarelo-light) !important; color: var(--amarelo) !important; border-color: #fde68a !important; }
+.alert-b { background: var(--azul-light) !important; color: var(--azul) !important; }
+
+/* Cabeçalhos de Seção */
+.sec-head-title {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: var(--texto-dark) !important;
+}
+</style>
+"""
 /* ════════════════════════════════════════════════════════════════
    SIDEBAR
    ════════════════════════════════════════════════════════════════ */
